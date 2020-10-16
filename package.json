@@ -1,0 +1,37 @@
+{
+  "name": "ichibot",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "bin": "dist/index.js",
+  "repository": "git@gitlab.com:Ichimikichiki/ichibot-client.git",
+  "author": "",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "build-standalone": "yarn build && yarn package-standalone",
+    "package-standalone": "pkg .",
+    "start": "node dist/index.js",
+    "dev": "supervisor -w src -e ts,json -n error  -x npx -- ts-node src/index.ts",
+    "dev-local": "SERVER_URL=ws://localhost:8888 supervisor -w src -e ts,json -n error  -x npx -- ts-node src/index.ts",
+    "dev-docker": "SERVER_URL=ws://ichibot.trade.local:8888 supervisor -w src -e ts,json -n error  -x npx -- ts-node src/index.ts",
+    "dev-test": "SERVER_URL=wss://test.ichibot.trade:443 supervisor -w src -e ts,json -n error  -x npx -- ts-node src/index.ts",
+    "start-local": "SERVER_URL=ws://localhost:8888 npx ts-node src/index.ts"
+  },
+  "dependencies": {
+    "@types/node": "^14.0.19",
+    "@types/ramda": "^0.27.11",
+    "@types/ws": "^7.2.6",
+    "node-json-db": "^1.1.0",
+    "ramda": "^0.27.0",
+    "rpc-websockets": "^5.2.2",
+    "ts-node": "^8.10.2",
+    "typescript": "^4.0.2",
+    "ws": "^7.3.1",
+    "yaml": "^1.10.0"
+  },
+  "devDependencies": {
+    "pkg": "^4.4.9",
+    "supervisor": "^0.12.0"
+  }
+}

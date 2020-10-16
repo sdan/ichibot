@@ -1,0 +1,29 @@
+image: "node:13"
+
+before_script:
+  - yarn install
+  - yarn build
+
+build-linux:
+  script:
+    - yarn package-standalone -t linux -o ichibot-linux
+  artifacts:
+    name: standalone-linux
+    paths:
+      - ichibot-linux
+
+build-osx:
+  script:
+    - yarn package-standalone -t macos -o ichibot-macos
+  artifacts:
+    name: standalone-osx
+    paths:
+      - ichibot-macos
+
+build-windows:
+  script:
+    - yarn package-standalone -t win -o ichibot-win.exe
+  artifacts:
+    name: standalone-windows
+    paths:
+      - ichibot-win.exe

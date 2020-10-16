@@ -1,0 +1,7 @@
+ichibot-config-db.json
+node_modules
+dist
+initrun.txt
+client-linux
+client-macos
+client-win.exe

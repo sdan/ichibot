@@ -1,0 +1,8 @@
+ichibot-config-db.json
+node_modules
+dist
+src/config.ts
+initrun.txt
+client-linux
+client-macos
+client-win.exe
