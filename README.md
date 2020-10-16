@@ -1,5 +1,5 @@
 - ichibot is Officially Integrated with FTX Exchange!  
-- ichibot is a powerful tool and can be completely customised by the user (on the fly) to suit whatever your specific trading style is. Our most successful users are aggressive traders. Most likely due to the speed advantages of ichibot. Probably because speed isn't really much of an edge to placing limit orders.  
+- ichibot is a powerful tool and can be completely customised by the user (on the fly) to suit whatever your specific trading style is. Our most successful users are aggressive scalpers. Most likely due to the speed advantages of ichibot and making repetitive tasks so much easier. However it suits **any** discretionary trading style.     
 - Think of it more of a CLI (Command Line Interface) rather than a bot. It doesn't make any of it's own decisions and is 100% under manual control.  
 - **[https://ftx.com/#a=ichi](https://ftx.com/#a=ichi)** Anyone religiously using my ref or generous donors will receive *PRIORITY* support, eventually advanced access to new features, hidden/undocumented features and priority new feature requests.  
 - You can still add my ref to your account if you haven't made a trade yet. Just go to your [FTX settings](https://ftx.com/profile) and add my ref - **1525075**  
@@ -7,13 +7,11 @@
 - **[https://twitter.com/ichibot](https://twitter.com/ichi)**  
 - **[ichibot Community Discord Server](https://discord.gg/yx84w2C)**  
 - ichibot is exclusive to FTX Exchange. We won't be supporting other exchanges. Regardless if you offer money or to provide the additional code yourself.  
-- This app is still in beta. Please understand this is for testing. Kindly provide some feedback in our Discord if you like or if you have any suggestions. If it's a good suggestion, we'll usually have it done within a few days to a week.  
+- This app is still in beta. Please understand this is for testing.
 - ichibot algo is currently under development. It will enable you to create new features yourself, without us having to make any changes the code. Rather than keep everyone in anticipation for algo to be fully complete, we are fast tracking a few algo rules individually for you to use in the mean time. The only one available at the moment is the limit chaser, which was made to test the algo system.  
-- If you wish to request a new feature - wait until ichibot algo is out - you will be able to create the feature yourself.  
-- If you're on **VIP fees** somewhere else and you used my ref - DM me :)    
 - **NEVER message the dev under ANY circumstances.** He is not paid to do the pleb work (customer support). Message ichi instead.  
-- Be careful testing New Features. Always use small account balance to start.  
-- You can connect a Stream Deck to execute trades - [quick set up video](https://cdn.discordapp.com/attachments/725330804800225324/761147434436263956/stream_deck_discord_example.mov)  
+- Be careful testing New Features. Always use small account balance to start. Try `simulation on` to test an order. `simulation off` when you're done.  
+- You can connect a Stream Deck to execute trades if you wish - [quick set up video](https://cdn.discordapp.com/attachments/725330804800225324/761147434436263956/stream_deck_discord_example.mov)  
 ![Stream Deck](https://media.discordapp.net/attachments/725330804800225324/761876510079844362/Capture_decran_2020-10-03_a_17.02.21.png)  
 
 | Steps to set up ichibot  |    |    
@@ -41,7 +39,7 @@ Windows = open CMD terminal + drag and drop the ichibot-win.exe into the CMD win
     
 ______________________________________________________________________________________________
 
-# Compile yourself manually  (skip if you downloaded the ready to go apps)
+# Compile yourself manually  (skip to API Credentials if you downloaded the ready to go apps above)
 
 Steps are tested on Ubuntu 18.04 and Ubuntu 20.04 and MacOS 10.15.6. Most have got it to work on Windows also.
 
