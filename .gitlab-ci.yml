@@ -1,3 +1,9 @@
+workflow:
+  rules:
+    - if: $CI_COMMIT_MESSAGE =~ /-README$/
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+
 image: "node:13"
 
 before_script:
