@@ -1,3 +1,5 @@
+# Try the wiki for easier to follow user manual - https://gitlab.com/Ichimikichiki/ichibot-client-app/-/wikis/home
+
 - ichibot is Officially Integrated with FTX Exchange!  
 - ichibot is a powerful tool and can be completely customised by the user (on the fly) to suit whatever your specific trading style is. Our most successful users are aggressive scalpers. Most likely due to the speed advantages of ichibot and making repetitive tasks so much easier. However it suits **any** discretionary trading style.     
 - Think of it more of a CLI (Command Line Interface) rather than a bot. It doesn't make any of it's own decisions and is 100% under manual control.  
