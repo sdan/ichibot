@@ -119,6 +119,8 @@ Contract amounts are in the underlying... `buy 1` means buy 1 BTC or 1 ETH, not 
 
 #### Please use lower case in ichibot - it does funny things if you type posSize instead of possize.
 
+#### SPOT markets are now live - `instrument btc/usd` for example. Please note, many of the functions are specific for derivatives. You don't really have a "position" with spot the same as you do for derivatives, so %possize etc won't work. Please be mindful SPOT is very early beta stage, so still could be bugs.
+
 ##### List of Commands:  
 | command   | description |
 | ------------- | ---------- |
