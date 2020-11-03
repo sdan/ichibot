@@ -272,7 +272,7 @@ export default class IchibotClient {
       this.opts.saveCmdToInit(null, this.context.currentInstrument ?? ALL_SYM, [a, b, null], cmd);
     } else if (a === 'fatfinger' && b && this.context.currentInstrument !== null) {
       this.opts.saveCmdToInit(null, this.context.currentInstrument, [a], cmd);
-    } else if (a === 'set' && /[a-zA-Z]+/.test(b) && rest.length === 1) {
+    } else if (a === 'set' && /^[a-zA-Z0-9]+$/.test(b) && rest.length === 1) {
       this.opts.saveCmdToInit(null, this.context.currentInstrument ?? ALL_SYM, [a, b], cmd);
     }
 
