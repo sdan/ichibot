@@ -29,6 +29,9 @@ export function exhaustiveCheck(x: never, msg?: string): never {
 
 export function waitUntil(fn: (() => boolean), interval: number = 10) {
   return new Promise((resolve) => {
+    if (fn()) {
+      return resolve();
+    }
     const i = setInterval(() => {
       if (fn()) {
         clearInterval(i);

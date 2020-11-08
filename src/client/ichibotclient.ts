@@ -71,19 +71,38 @@ export default class IchibotClient {
     this.opts.io.setPrompt(this.getPromptText());
   }
 
+  private isConnected: boolean = false;
+
   public async start() {
     this.refreshPrompt();
 
+    let dcTimeout: NodeJS.Timeout | null = null;
+    let notifyReconnect = false;
+
     this.rpc.connect();
     this.rpc.on('error', () => {
-      this.output.error('Connection error to the server. Trying to reconnect...');
+      if (dcTimeout === null) {
+        this.output.error('Connection error to the server. Trying to reconnect...');
+      }
     });
     this.rpc.on('open', () => {
-      this.output.log('Connection open');
+      this.isConnected = true;
+      if (dcTimeout !== null) {
+        if (notifyReconnect) {
+          this.output.log('Reconnected');
+        }
+        clearTimeout(dcTimeout);
+      } else {
+        this.output.log('Connection open');
+      }
+      notifyReconnect = false;
       this.login();
     });
     this.rpc.on('close', () => {
-      this.output.log('Connection closed');
+      this.isConnected = false;
+      dcTimeout = setTimeout(() => {
+        this.output.log('Connection closed, trying to reconnect...');
+      }, 10000)
     });
     this.rpc.on('feed', (msg: MessageNotification['params']) => {
       if (msg.type === 'dir') {
@@ -105,6 +124,9 @@ export default class IchibotClient {
 
     const POKE_INTERVAL = 5000;
     setInterval(() => {
+      if (!this.isConnected) {
+        return;
+      }
       this.callRpc('poke', {})
         .catch(this.logError);
     }, POKE_INTERVAL);
@@ -132,6 +154,12 @@ export default class IchibotClient {
       try {
 
         const answer = (await this.query(this.getPromptText())).trim();
+        if (!this.isConnected) {
+          this.output.log(`Lost connection to server, wait until reconnected.`);
+          notifyReconnect = true;
+          continue;
+        }
+
         this.output.log(COL.Dim, ':::', answer);
         if (answer.length > 0) {
           const result = this.processCommand(answer)
@@ -209,7 +237,7 @@ export default class IchibotClient {
       this.output.warn(``);
     }
 
-    this.output.log(`Login steps done.`);
+    this.output.debug(`Login steps done.`);
     return;
   }
 
