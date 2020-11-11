@@ -46,11 +46,11 @@ Just double click the app or if that doesn't stay open then open a CMD terminal 
    `nvm install 12`  
    `npm i -g yarn`  
 
-   `git clone https://gitlab.com/Ichimikichiki/ichibot-client.git`
+   `git clone https://gitlab.com/Ichimikichiki/ichibot-client-app.git`
    ### Enter username + pass to login to gitlab  
       
    # Build app and run  
-   `cd ichibot-client`  
+   `cd ichibot-client-app`  
    `yarn install`  
    `yarn build`  
    `yarn start`  
