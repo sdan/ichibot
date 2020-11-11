@@ -30,6 +30,38 @@ Then just double click the app to launch
   
 **Windows**
 Just double click the app or if that doesn't stay open then open a CMD terminal and drag and drop ichibot-win.exe into the CMD window   
+   
+# Compile yourself manually  (skip to API Credentials if you downloaded the ready to go apps above)
+
+   Steps are tested on Ubuntu 18.04 and Ubuntu 20.04 and MacOS 10.15.6. Most have got it to work on Windows also.
+
+  # Install dependencies  
+   ## Install node 12 (node version manager)  
+
+   `curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.2/install.sh | bash`  
+
+   ### Close and restart your terminal session  
+
+   ## Install Node 12  
+   `nvm install 12`  
+   `npm i -g yarn`  
+
+   `git clone https://gitlab.com/Ichimikichiki/ichibot-client.git`
+   ### Enter username + pass to login to gitlab  
+      
+   # Build app and run  
+   `cd ichibot-client`  
+   `yarn install`  
+   `yarn build`  
+   `yarn start`  
+
+   # When the time comes to do an update. Do:  
+   `git pull`  
+   `yarn install`  
+   `yarn build`  
+   `yarn start`  
+      
+    
     
 ______________________________________________________________________________________________
   

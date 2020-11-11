@@ -130,9 +130,6 @@ export default class ReconnectingWebsocket extends EventEmitter {
       ws.onclose = this.handleClose;
       ws.onmessage = this.handleMessage;
       ws.onopen = this.handleOpen;
-      ws.on('error', (err) => {
-        console.error(`WebSocket error event: ${err.message}. (Only logging this here, the actual error handled by a different handler.)`);
-      })
     } catch (err) {
       // Creating a connection can fail sometimes
       this.reconnect();
@@ -159,8 +156,7 @@ export default class ReconnectingWebsocket extends EventEmitter {
 
   public handleError = (error: ErrorEvent) => {
     console.error("WebSocket error", error);
-    this.emit("error", error);
-
+    console.log('Reconnecting this websocket');
     this.reconnect();
   }
 
