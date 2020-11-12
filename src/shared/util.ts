@@ -238,14 +238,24 @@ export const stringify = (a: any, depth: number = 3): string => {
 
 export const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export const setTerminatingInterval = (fn: (() => boolean), interval: number, opts: {leading?: boolean} = {}) => {
+export const setTerminatingInterval = (fn: (() => boolean), interval: number, opts: {leading?: boolean, onError?: (err: Error) => boolean} = {}) => {
   let instance: NodeJS.Timeout | null = null;
 
   const handler = () => {
-    const shouldTerminate = fn();
-    if (shouldTerminate && instance) {
-      clearInterval(instance);
-      instance = null;
+    try {
+      const shouldTerminate = fn();
+      if (shouldTerminate && instance) {
+        clearInterval(instance);
+        instance = null;
+      }
+    } catch (err) {
+      if (opts.onError) {
+        const shouldTerminate = opts.onError(err);
+        if (shouldTerminate && instance) {
+          clearInterval(instance);
+          instance = null;
+        }
+      }
     }
   }
 

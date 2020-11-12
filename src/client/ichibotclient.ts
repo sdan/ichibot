@@ -164,7 +164,7 @@ export default class IchibotClient {
         if (answer.length > 0) {
           const result = this.processCommand(answer)
             .then((res) => {
-              if (!res.success) {
+              if (!res?.success) {
                 throw new Error(res.message || `Unspecified error processing ${answer}`);
               }
             })
@@ -296,14 +296,19 @@ export default class IchibotClient {
       return;
     }
 
-    if (a === 'alias' && rest.length > 0) {
-      this.opts.saveCmdToInit(null, this.context.currentInstrument ?? ALL_SYM, [a, b, null], cmd);
-    } else if (a === 'fatfinger' && b && this.context.currentInstrument !== null) {
-      this.opts.saveCmdToInit(null, this.context.currentInstrument, [a], cmd);
-    } else if (a === 'set' && /^[a-zA-Z0-9]+$/.test(b) && rest.length === 1) {
-      this.opts.saveCmdToInit(null, this.context.currentInstrument ?? ALL_SYM, [a, b], cmd);
-    }
+    const currentInstrument = this.context.currentInstrument;
 
-    return this.callRpc('rawcmd', {cmd: cmd, debug: this.opts.debug});
+    return this.callRpc('rawcmd', {cmd: cmd, debug: this.opts.debug}).then((result) => {
+      if (result.success) {
+        if (a === 'alias' && rest.length > 0) {
+          this.opts.saveCmdToInit(null, currentInstrument ?? ALL_SYM, [a, b, null], cmd);
+        } else if (a === 'fatfinger' && b && currentInstrument !== null) {
+          this.opts.saveCmdToInit(null, currentInstrument, [a], cmd);
+        } else if (a === 'set' && /^[a-zA-Z0-9]+$/.test(b) && rest.length === 1) {
+          this.opts.saveCmdToInit(null, currentInstrument ?? ALL_SYM, [a, b], cmd);
+        }
+      }
+      return result;
+    });
   }
 }
