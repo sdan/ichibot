@@ -1,6 +1,6 @@
 import { IchibotRPC, AuthArgs, MessageNotification, ContextNotification, GlobalContext, ALL_SYM, APP_VERSION } from '../shared/ichibotrpc_types';
 import * as RPC from 'rpc-websockets';
-import { ParameterType, Logger } from '../shared/util';
+import { ParameterType, Logger, isReplacementDefinition } from '../shared/util';
 import { CONSOLE_COLORS } from './constants';
 
 const CLIENT_VERSION = APP_VERSION;
@@ -307,8 +307,8 @@ export default class IchibotClient {
       if (result.success) {
         if (a === 'alias' && rest.length > 0) {
           this.opts.saveCmdToInit(null, currentInstrument ?? ALL_SYM, [a, b, null], cmd);
-        } else if (a === 'replace') {
-          this.opts.saveCmdToInit(null, currentInstrument ?? ALL_SYM, [a, b], cmd);
+        } else if (isReplacementDefinition(cmd)) {
+          this.opts.saveCmdToInit(null, currentInstrument ?? ALL_SYM, [a, b.replace(':', '')], cmd);
         } else if (a === 'fatfinger' && b && currentInstrument !== null) {
           this.opts.saveCmdToInit(null, currentInstrument, [a], cmd);
         } else if (a === 'set' && /^[a-zA-Z0-9]+$/.test(b) && rest.length === 1) {

@@ -91,7 +91,7 @@ function saveCmdToInit(filename: string | null, contextSymbol: string, lineMatch
       .filter((a) => a !== '');
 
     for (let i = 0; i < lineMatchers.length; ++i) {
-      if (args[i] === undefined || lineMatchers[i] !== null && lineMatchers[i]?.toLowerCase() !== args[i].toLowerCase()) {
+      if (args[i] === undefined || lineMatchers[i] !== null && lineMatchers[i]?.toLowerCase() !== args[i].toLowerCase().replace(':', '')) {
         return false;
       }
     }

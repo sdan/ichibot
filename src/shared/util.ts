@@ -284,3 +284,6 @@ export const subscribe = <T, E extends string>(o: {on: (e: E, fn: SubHandler<T>)
     }
   }
 }
+
+export const isReplacementDefinition = (cmd: string): boolean =>
+  /replace.+:.+/.test(cmd);
