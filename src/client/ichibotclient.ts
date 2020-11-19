@@ -32,6 +32,8 @@ export default class IchibotClient {
 
   private output: Logger;
 
+  public lastPokeResponse: number = Infinity;
+
   constructor(private opts: IchibotClientOpts)  {
     const {wsUrl, getDataSafe} = opts;
 
@@ -128,6 +130,9 @@ export default class IchibotClient {
         return;
       }
       this.callRpc('poke', {})
+        .then(() => {
+          this.lastPokeResponse = Date.now();
+        })
         .catch(this.logError);
     }, POKE_INTERVAL);
 
@@ -302,6 +307,8 @@ export default class IchibotClient {
       if (result.success) {
         if (a === 'alias' && rest.length > 0) {
           this.opts.saveCmdToInit(null, currentInstrument ?? ALL_SYM, [a, b, null], cmd);
+        } else if (a === 'replace') {
+          this.opts.saveCmdToInit(null, currentInstrument ?? ALL_SYM, [a, b], cmd);
         } else if (a === 'fatfinger' && b && currentInstrument !== null) {
           this.opts.saveCmdToInit(null, currentInstrument, [a], cmd);
         } else if (a === 'set' && /^[a-zA-Z0-9]+$/.test(b) && rest.length === 1) {

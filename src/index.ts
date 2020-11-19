@@ -14,6 +14,8 @@ const COL = CONSOLE_COLORS;
 
 const clientDB = new JsonDB(new JsonDBConfig('ichibot-config-db', true, true));
 
+const LOG_TIMESTAMPS = !!process.env.LOG_TIMESTAMPS;
+
 const getDataSafe = <T>(path: string, defaultValue: T): T => {
   if (clientDB.exists(path)) {
     return clientDB.getData(path);
@@ -142,6 +144,7 @@ const output: Logger = {
     clearLine(process.stdout, 0);
     cursorTo(process.stdout, 0);
     console.log([
+      ...(LOG_TIMESTAMPS ? [new Date().toISOString()] : []),
       args.map((x) =>
         typeof x === 'string' ? x : JSON.stringify(x)
       )

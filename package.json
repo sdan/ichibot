@@ -12,8 +12,9 @@
     "build-standalone": "yarn build && yarn package-standalone",
     "package-standalone": "pkg .",
     "start": "node dist/index.js",
-    "dev": "supervisor -w src -e ts,json -n error  -x npx -- ts-node src/index.ts",
+    "dev": "LOG_TIMESTAMPS=true supervisor -w src -e ts,json -n error  -x npx -- ts-node src/index.ts",
     "dev-local": "SERVER_URL=ws://localhost:8888 supervisor -w src -e ts,json -n error  -x npx -- ts-node src/index.ts",
+    "dev-local-proxied": "SERVER_URL=ws://localhost:5050 supervisor -w src -e ts,json -n error  -x npx -- ts-node src/index.ts",
     "dev-docker": "SERVER_URL=ws://ichibot.trade.local:8888 supervisor -w src -e ts,json -n error  -x npx -- ts-node src/index.ts",
     "dev-test": "SERVER_URL=wss://test.ichibot.trade:443 supervisor -w src -e ts,json -n error  -x npx -- ts-node src/index.ts",
     "start-local": "SERVER_URL=ws://localhost:8888 npx ts-node src/index.ts"
@@ -22,6 +23,7 @@
     "@types/node": "^14.0.19",
     "@types/ramda": "^0.27.11",
     "@types/ws": "^7.2.6",
+    "http-proxy": "^1.18.1",
     "node-json-db": "^1.1.0",
     "ramda": "^0.27.0",
     "rpc-websockets": "^5.2.2",

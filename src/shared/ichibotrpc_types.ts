@@ -1,6 +1,6 @@
 import { ParameterType } from "./util";
 
-export const APP_VERSION = 13;
+export const APP_VERSION = 14;
 
 export const ALL_SYM = '*';
 export const symFriendlyName = (s: string | null): string => (s === null || s === '*') ? 'global' : s;
