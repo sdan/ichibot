@@ -1,19 +1,17 @@
 import readline, { clearLine, cursorTo } from 'readline';
-import { Logger } from './shared/util';
+import { getInitInstrument, Logger } from './shared/util';
 import { JsonDB } from 'node-json-db';
 import { Config as JsonDBConfig } from 'node-json-db/dist/lib/JsonDBConfig';
 import { join as pathJoin } from 'path';
-import { writeFileSync, existsSync, readFileSync } from 'fs';
+import { writeFileSync, existsSync, readFileSync, renameSync } from 'fs';
 import { flatten } from 'ramda';
 import IchibotClient from './client/ichibotclient';
 import { CONSOLE_COLORS } from './client/constants';
-
-const INIT_INSTRUMENT = 'BTC-PERP';
+import { ExchangeLabel } from './shared/types';
 
 const COL = CONSOLE_COLORS;
 
 const clientDB = new JsonDB(new JsonDBConfig('ichibot-config-db', true, true));
-
 const LOG_TIMESTAMPS = !!process.env.LOG_TIMESTAMPS;
 
 const getDataSafe = <T>(path: string, defaultValue: T): T => {
@@ -24,9 +22,19 @@ const getDataSafe = <T>(path: string, defaultValue: T): T => {
   }
 }
 
-const INIT_FILE_NAME =  pathJoin(process.cwd(), 'initrun.txt');
+const INIT_FILE_OLD_PATH = pathJoin(process.cwd(), 'initrun.txt');
+const getInitFilePath = (exchange: ExchangeLabel): string => pathJoin(process.cwd(), `initrun.${exchange}.txt`);
 
-function readInitFile(filename: string = INIT_FILE_NAME): {initLines: string[]} {
+if (existsSync(INIT_FILE_OLD_PATH)) {
+  renameSync(INIT_FILE_OLD_PATH, getInitFilePath('ftx'));
+}
+
+function readInitFile(exchange: ExchangeLabel): {initLines: string[]} {
+  if (!exchange) { // Legacy. Currently not possible to create auth without exchange but old data may have it so
+    exchange = 'ftx';
+  }
+
+  const filename = getInitFilePath(exchange);
   if (!existsSync(filename)) {
     output.log(`Initfile ${filename} doesn't exist yet. Skipping user init script.`);
     return {initLines: []};
@@ -43,15 +51,22 @@ function readInitFile(filename: string = INIT_FILE_NAME): {initLines: string[]} 
   };
 }
 
-function saveCmdToInit(filename: string | null, contextSymbol: string, lineMatchers: Array<string | null>, cmd: string): void {
-  if (filename === null) {
-    filename = INIT_FILE_NAME;
+// If cmd is null this is a removal
+function saveCmdToInit(exchange: ExchangeLabel, contextSymbol: string, lineMatchers: Array<string | null>, cmd: string | null): void {
+  if (!exchange) { // Legacy. Currently not possible to create auth without exchange but old data may have it so
+    exchange = 'ftx';
   }
 
-  const symFriendlyName = contextSymbol === '*' ? 'global' : contextSymbol;
-  output.log(`Writing command "${cmd}" to ${symFriendlyName} initialization steps.`)
+  const filename = getInitFilePath(exchange);
 
-  const cmdWords = cmd.split(/\s+/)
+  const symFriendlyName = contextSymbol === '*' ? 'global' : contextSymbol;
+  if (cmd) {
+    output.log(`Writing command "${cmd}" to ${symFriendlyName} initialization steps.`)
+  } else {
+    output.log(`Removing command "${lineMatchers[0]} ${lineMatchers[1]}" from ${symFriendlyName} initialization steps.`)
+  }
+
+  const cmdWords = cmd?.split(/\s+/)
     .map((a) => a.trim())
     .filter((a) => a !== '');
 
@@ -60,7 +75,7 @@ function saveCmdToInit(filename: string | null, contextSymbol: string, lineMatch
     : [];
 
   const linesPerSym: Array<{sym: string, lines: string[]}> = [];
-  let currentInstrument = INIT_INSTRUMENT;
+  let currentInstrument = getInitInstrument(exchange);
 
   let currentSymBlock: {sym: string, lines: string[]} = {sym: currentInstrument, lines: []};
 
@@ -100,13 +115,15 @@ function saveCmdToInit(filename: string | null, contextSymbol: string, lineMatch
 
   const matchingLineIdx = symBlock.lines.findIndex(isMatch);
 
+  const removeMarker = '#TOBEREMOVED#';
+
   if (matchingLineIdx > -1) {
-    symBlock.lines[matchingLineIdx] = cmdWords.join(' ');
-  } else {
+    symBlock.lines[matchingLineIdx] = cmdWords?.join(' ') ?? removeMarker;
+  } else if (cmdWords) {
     symBlock.lines.push(cmdWords.join(' '));
   }
 
-  const newInitLines = flatten(linesPerSym.map((b) => b.lines));
+  const newInitLines = flatten(linesPerSym.map((b) => b.lines)).filter((l) => l !== removeMarker);
 
   writeFileSync(filename, newInitLines.join('\n'));
 };
@@ -115,6 +132,7 @@ function saveCmdToInit(filename: string | null, contextSymbol: string, lineMatch
 const wsUrl = process.env.SERVER_URL || 'wss://beta.ichibot.trade:443';
 
 export interface Config {
+  exchange: ExchangeLabel;
   apiKey: string;
   apiSecret: string;
   subAccount?: string;

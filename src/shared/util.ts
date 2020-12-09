@@ -1,5 +1,17 @@
+import { ExchangeLabel } from "./types";
+
 const isObject = (value: unknown) => value !== null && typeof value === 'object';
 const isArray = (value: unknown): value is any[] => Array.isArray(value);
+
+export function getExchangeFromApiKey(key: string): ExchangeLabel {
+  if (key.length === 40) {
+    return 'ftx';
+  } else if (key.length === 64) {
+    return 'binance';
+  } else {
+    throw new Error(`Could not determine exchange from api key`);
+  }
+}
 
 export function dropUndef(o: {[key: string]: any}): {[key: string]: any} {
   const res: {[key: string]: any} = {}
@@ -28,7 +40,7 @@ export function exhaustiveCheck(x: never, msg?: string): never {
 }
 
 export function waitUntil(fn: (() => boolean), interval: number = 10) {
-  return new Promise((resolve) => {
+  return new Promise<void>((resolve) => {
     if (fn()) {
       return resolve();
     }
@@ -216,6 +228,9 @@ export type RequireOne<T, Keys extends keyof T = keyof T> =
 
 export type Optional<T extends {[key: string]: any}> = {[K in keyof T]?: T[K]};
 
+export type WithOptional<T, U extends keyof T> = Pick<T, Exclude<keyof T, U>> & { [K in U]?: T[K]};
+export type WithNullable<T, N extends keyof T> = {[K in keyof T]: K extends N ? T[K] | null : T[K]};
+
 export type DeepPartial<T> = {
   [P in keyof T]?: DeepPartial<T[P]>;
 };
@@ -287,3 +302,9 @@ export const subscribe = <T, E extends string>(o: {on: (e: E, fn: SubHandler<T>)
 
 export const isReplacementDefinition = (cmd: string): boolean =>
   /replace.+:.+/.test(cmd);
+
+export const getInitInstrument = (exchange: ExchangeLabel) => exchange === 'ftx' ? 'BTC-PERP' : 'BTCUSDT';
+
+export type Defined<T> = T extends (undefined | null) ? never : T;
+
+export const isDefined = <T>(x: T | undefined | null): x is T => x !== undefined && x !== null;

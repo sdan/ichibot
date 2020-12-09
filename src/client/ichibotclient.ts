@@ -2,6 +2,7 @@ import { IchibotRPC, AuthArgs, MessageNotification, ContextNotification, GlobalC
 import * as RPC from 'rpc-websockets';
 import { ParameterType, Logger, isReplacementDefinition } from '../shared/util';
 import { CONSOLE_COLORS } from './constants';
+import { ExchangeLabel } from '../shared/types';
 
 const CLIENT_VERSION = APP_VERSION;
 
@@ -9,14 +10,16 @@ const COL = CONSOLE_COLORS;
 
 export interface ClientDB {
   push: (key: string, value: any) => void;
+  delete: (key: string) => void;
+  filter: <T = any>(root: string, fn: (item: T, key: string | number) => boolean) => T[] | undefined;
 }
 
 export interface IchibotClientOpts {
   wsUrl: string;
   getDataSafe: <T>(path: string, defaultValue: T) => T;
   logger: Logger;
-  readInitFile: (filename?: string) => {initLines: string[]};
-  saveCmdToInit: (filename: string | null, contextSymbol: string, lineMatchers: Array<string | null>, cmd: string) => void;
+  readInitFile: (exchange: ExchangeLabel) => {initLines: string[]};
+  saveCmdToInit: (exchange: ExchangeLabel, contextSymbol: string, lineMatchers: Array<string | null>, cmd: string | null) => void;
   debug?: boolean;
   clientDB: ClientDB;
   io: {
@@ -24,6 +27,8 @@ export interface IchibotClientOpts {
     setPrompt: (p: string) => void;
   }
 }
+
+const getAuthSaveKey = (friendlyName: string): string => `/auth-${friendlyName}`;
 
 export default class IchibotClient {
   private rpc: RPC.Client;
@@ -34,8 +39,10 @@ export default class IchibotClient {
 
   public lastPokeResponse: number = Infinity;
 
+  private isFirstLogin: boolean = true;
+
   constructor(private opts: IchibotClientOpts)  {
-    const {wsUrl, getDataSafe} = opts;
+    const {wsUrl} = opts;
 
     this.output = opts.logger;
 
@@ -45,7 +52,10 @@ export default class IchibotClient {
       max_reconnects: 99999,
     });
 
-    this.auth = getDataSafe('/auth', null);
+    const potentialAuths = opts.clientDB.filter('/', (_item, key) => typeof key === 'string' && key.startsWith('auth'));
+    const auth = (!potentialAuths || potentialAuths.length === 0) ? null : potentialAuths.find((auth: AuthArgs['auth']) => auth.friendlyName === 'default') ?? potentialAuths[0];
+
+    this.auth = auth;
   }
 
   private logError = (err: Error & {code?: number}) => {
@@ -229,7 +239,7 @@ export default class IchibotClient {
       return;
     }
 
-    const { initLines } = this.opts.readInitFile();
+    const { initLines } = this.opts.readInitFile(this.auth.exchange ?? 'ftx');
     if (this.context) {
       initLines.push(`instrument ${this.context.currentInstrument || '*'}`);
     }
@@ -242,7 +252,12 @@ export default class IchibotClient {
       this.output.warn(``);
     }
 
+    if (this.isFirstLogin && !result.instanceStarted) {
+      this.output.log(`Resumed an existing bot session. Initlines were not re-evaluated.`);
+    }
+
     this.output.debug(`Login steps done.`);
+    this.isFirstLogin = false;
     return;
   }
 
@@ -250,8 +265,8 @@ export default class IchibotClient {
     this.output.log(`Signing out...`);
     await this.callRpc('bye', {});
     this.output.log('Clearing your credentials...')
+    this.opts.clientDB.delete(getAuthSaveKey(this.auth?.friendlyName ?? 'default'));
     this.auth = null;
-    this.opts.clientDB.push('/auth', this.auth);
     this.output.log('Done.');
   }
 
@@ -263,18 +278,29 @@ export default class IchibotClient {
       return;
     }
 
-    if (a === 'login') {
-      const apiKey = (await this.query('Your API key: ')).trim();
-      const apiSecret = (await this.query('Your API secret: ')).trim();
-      const subAccount = (await this.query('Your FTX subaccount name (leave empty for none): ')).trim();
+    if (['exit', 'quit', 'q'].includes(a)) {
+      this.output.log(`Signing out...`);
+      this.callRpc('bye', {}).catch(() => null);
+      process.exit(0);
+    }
 
-      if (!apiKey || !apiSecret) {
-        this.output.log('Key or secret empty. Try again.');
-        return;
+    if (a === 'login') {
+      const requestUntilValid = async (msg: string, validator: (s: string) => boolean): Promise<string> => {
+        let answer: string;
+        do {
+          answer = (await this.query(msg)).trim();
+        } while (!validator(answer))
+        return answer;
       }
 
-      this.auth = { apiKey, apiSecret, subAccount };
-      this.opts.clientDB.push('/auth', this.auth);
+      const exchange: ExchangeLabel = (await requestUntilValid('Exchange (b)inance/(f)tx: ', (s) => ['b', 'f'].includes(s[0].toLowerCase()))).startsWith('b') ? 'binance' : 'ftx';
+      const apiKey = (await requestUntilValid('Your API key: ', (s) => !!s));
+      const apiSecret = (await requestUntilValid('Your API secret: ', (s) => !!s));
+      const subAccount = exchange === 'ftx' ? (await requestUntilValid('Your FTX subaccount name (leave empty for none): ', () => true)) : '';
+      const friendlyName = (await requestUntilValid('Name these credentials (leave empty for making default): ', () => true)) || 'default';
+
+      this.auth = { apiKey, apiSecret, subAccount, exchange, friendlyName };
+      this.opts.clientDB.push(getAuthSaveKey(friendlyName), this.auth);
       this.output.log('API key saved. To clear current credentials please type "logout".')
       await this.login();
       return;
@@ -285,15 +311,14 @@ export default class IchibotClient {
       }
     }
 
+    const auth = this.auth;
+    if (!auth) {
+      throw new Error(`No auth present. This should not have happened.`);
+    }
+
     if (a === 'logout') {
       await this.logout().catch(this.logError);
       return;
-    }
-
-    if (['exit', 'quit', 'q'].includes(a)) {
-      this.output.log(`Signing out...`);
-      this.callRpc('bye', {}).catch(() => null);
-      process.exit(0);
     }
 
     if (!this.context) {
@@ -306,13 +331,17 @@ export default class IchibotClient {
     return this.callRpc('rawcmd', {cmd: cmd, debug: this.opts.debug}).then((result) => {
       if (result.success) {
         if (a === 'alias' && rest.length > 0) {
-          this.opts.saveCmdToInit(null, currentInstrument ?? ALL_SYM, [a, b, null], cmd);
+          this.opts.saveCmdToInit(auth.exchange, currentInstrument ?? ALL_SYM, [a, b, null], cmd);
         } else if (isReplacementDefinition(cmd)) {
-          this.opts.saveCmdToInit(null, currentInstrument ?? ALL_SYM, [a, b.replace(':', '')], cmd);
+          this.opts.saveCmdToInit(auth.exchange, currentInstrument ?? ALL_SYM, [a, b.replace(':', '')], cmd);
         } else if (a === 'fatfinger' && b && currentInstrument !== null) {
-          this.opts.saveCmdToInit(null, currentInstrument, [a], cmd);
+          this.opts.saveCmdToInit(auth.exchange, currentInstrument, [a], cmd);
         } else if (a === 'set' && /^[a-zA-Z0-9]+$/.test(b) && rest.length === 1) {
-          this.opts.saveCmdToInit(null, currentInstrument ?? ALL_SYM, [a, b], cmd);
+          this.opts.saveCmdToInit(auth.exchange, currentInstrument ?? ALL_SYM, [a, b], cmd);
+        } else if (a === 'unalias' && rest.length === 0) {
+          this.opts.saveCmdToInit(auth.exchange, currentInstrument ?? ALL_SYM, ['alias', b, null], null);
+        } else if (a === 'unreplace' && rest.length === 0) {
+          this.opts.saveCmdToInit(auth.exchange, currentInstrument ?? ALL_SYM, ['replace', b, null], null);
         }
       }
       return result;

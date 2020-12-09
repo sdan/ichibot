@@ -1,6 +1,7 @@
 import { ParameterType } from "./util";
+import { ExchangeLabel } from './types';
 
-export const APP_VERSION = 14;
+export const APP_VERSION = 16;
 
 export const ALL_SYM = '*';
 export const symFriendlyName = (s: string | null): string => (s === null || s === '*') ? 'global' : s;
@@ -15,9 +16,11 @@ export interface DebuggableArgs {
 
 export interface AuthArgs {
   auth: {
+    exchange: ExchangeLabel;
     apiKey: string;
     apiSecret: string;
     subAccount?: string | null;
+    friendlyName: string;
   }
 }
 
@@ -30,6 +33,7 @@ export interface IchibotRPC {
     instanceStarted: boolean;
     version: number;
   }>;
+  reloadInit: (args: {initLines: string[]} & CommonArgs) => Promise<{ok: boolean}>,
   poke: (args: {} & CommonArgs) => Promise<{}>;
   bye: (args: {} & CommonArgs) => Promise<{
     ok: boolean;
