@@ -1,8 +1,9 @@
 # Try the wiki [here for easier to follow user manual](https://gitlab.com/Ichimikichiki/ichibot-client-app/-/wikis/home)
 
+  
 | | **STEPS TO SET UP ICHIBOT**      |    
 | ------------- | ----------  |
-| Step 1 | Download ichibot here **[Windows](https://gitlab.com/Ichimikichiki/ichibot-client-app/-/jobs/826231220/artifacts/download) [MacOS](https://gitlab.com/Ichimikichiki/ichibot-client-app/-/jobs/826231219/artifacts/download) and [Linux](https://gitlab.com/Ichimikichiki/ichibot-client-app/-/jobs/826231218/artifacts/download)** These are compiled for you by Gitlab directly from the source code. MacOS and Linux users still need to run **chmod +x ichibot-macos** or **chmod +x ichibot-linux** - more detailed instructions further down the page if you need. Just reach out if you're stuck on this.  |
+| Step 1 | Download ichibot here **[Windows](https://gitlab.com/Ichimikichiki/ichibot-client-app/-/jobs/artifacts/master/download?job=build-windows) [MacOS](https://gitlab.com/Ichimikichiki/ichibot-client-app/-/jobs/artifacts/master/download?job=build-osx) and [Linux](https://gitlab.com/Ichimikichiki/ichibot-client-app/-/jobs/artifacts/master/download?job=build-linux)** These are compiled for you by Gitlab directly from the source code. MacOS and Linux users still need to run **chmod +x ichibot-macos** or **chmod +x ichibot-linux** - more detailed instructions further down the page if you need. Just reach out if you're stuck on this.  |
 | Step 2 |  Sign up to **[FTX using this link](https://ftx.com/#a=ichi)**  |
 | Step 3 |  Follow the instructions to verify your account (by entering your name and stating which country you reside). That will allow you **$9,000 /day** withdrawals. If you wish to KYC either as **[individual](https://help.ftx.com/hc/en-us/articles/360027668192-Individual-Account-KYC)** or **[institution](https://help.ftx.com/hc/en-us/articles/360027668312-Institutional-Account-KYC)**, you can submit docs now or later for unlimited withdrawals. |
 | Step 4 |  Follow instructions below to save your API keys. Once saved you should have a **ichibot-config-db-json** file saved in your ichibot directory.  |
