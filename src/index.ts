@@ -36,7 +36,7 @@ function readInitFile(exchange: ExchangeLabel): {initLines: string[]} {
 
   const filename = getInitFilePath(exchange);
   if (!existsSync(filename)) {
-    output.log(`Initfile ${filename} doesn't exist yet. Skipping user init script.`);
+    output.log(`Initfile ${filename} doesn't exist yet. Skipping user init script. If this is your first run or you didn't define any aliases yet, this is expected. If you do have a premade initfile make sure it's named exactly as shown.`);
     return {initLines: []};
   }
 

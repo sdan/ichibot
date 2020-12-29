@@ -108,7 +108,9 @@ export default class IchibotClient {
         this.output.log('Connection open');
       }
       notifyReconnect = false;
-      this.login();
+      this.login().catch((err) => {
+        this.output.error(`Failed to login:`, err.message);
+      });
     });
     this.rpc.on('close', () => {
       this.isConnected = false;
@@ -179,7 +181,7 @@ export default class IchibotClient {
         if (answer.length > 0) {
           const result = this.processCommand(answer)
             .then((res) => {
-              if (!res?.success) {
+              if (res && !res.success) {
                 throw new Error(res.message || `Unspecified error processing ${answer}`);
               }
             })
@@ -302,7 +304,9 @@ export default class IchibotClient {
       this.auth = { apiKey, apiSecret, subAccount, exchange, friendlyName };
       this.opts.clientDB.push(getAuthSaveKey(friendlyName), this.auth);
       this.output.log('API key saved. To clear current credentials please type "logout".')
-      await this.login();
+      await this.login().catch((err) => {
+        this.output.error(`Login failed:`, err.message);
+      });
       return;
     } else {
       if (!this.auth) {
