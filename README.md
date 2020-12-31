@@ -34,51 +34,80 @@ Just double click the app or if that doesn't stay open then open a CMD terminal 
    
       
 _______________________________________________________________________________________________________  
+ ### Steps for MacOS and Linux:
+ Tested on Ubuntu 18.04 and Ubuntu 20.04 and MacOS 10.15.6. Most have got it to work on Windows also.
    
-
-# Compile yourself manually  (skip to API Credentials if you downloaded the ready to go apps above)
-
- ### Steps are tested on Ubuntu 18.04 and Ubuntu 20.04 and MacOS 10.15.6. Most have got it to work on Windows also. ###
-   
- # All Steps at Once (Quick and Simple)  
- # Copy and paste this whole thing into a terminal window  
+To Complete All Steps at Once - Copy and paste this **WHOLE THING** into a terminal window **at once** and hit enter    
 ```
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.2/install.sh | bash && export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion && nvm install 12 && npm i -g yarn && git clone https://gitlab.com/Ichimikichiki/ichibot-client-app.git && cd ichibot-client-app && yarn install && yarn build && yarn start
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.2/install.sh | bash && 
+export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm &&
+nvm install 12 && npm i -g yarn && git clone https://gitlab.com/Ichimikichiki/ichibot-client-app.git && cd ichibot-client-app && yarn install && yarn build && yarn start
 ```  
-That should be it. (Ignore the error when it starts the first time.)  
+That's it!  
+
+Should start within 20 seconds or so and just type login for the prompt to set up with your API keys (which are stored locally on your machine ONLY, in ichibot-config-db.json).
   
 ________________________________________________________________________________
 
    
  # Step-by-step  
 
-  # Install dependencies  
-   ## Install node 12 (node version manager)  
+#### Step 1:  
+```
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.2/install.sh | bash
+```
+#### Step 2:    
+```
+export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
+```
+ #### Step 3:  
+```
+nvm install 12 && npm i -g yarn  
+```
+#### Step 4:  
+```
+git clone https://gitlab.com/Ichimikichiki/ichibot-client-app.git
+```
+#### Step 5:  
+```
+cd ichibot-client-app
+```
+#### Step 6:  
+```
+yarn install
+```
+#### Step 7:  
+```
+yarn build
+```
+#### Start ichibot  
+```
+yarn start
+```
+# When the time comes to do an update.  
 
-   `curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.2/install.sh | bash`  
-
-   ### Close and restart your terminal session  
-
-   ## Install Node 12  
-   `nvm install 12`  
-   `npm i -g yarn`  
-
-   `git clone https://gitlab.com/Ichimikichiki/ichibot-client-app.git`
-   ### Enter username + pass to login to gitlab  
-      
-   # Build app and run  
-   `cd ichibot-client-app`  
-   `yarn install`  
-   `yarn build`  
-   `yarn start`  
-
-   # When the time comes to do an update. Do:  
-   `git pull`  
-   `yarn install`  
-   `yarn build`  
-   `yarn start`  
+Navigate to ichibot folder, probably something like  
+```
+cd ichibot-client-app
+```
+#### Step 1:  
+```
+git pull
+```
+#### Step 2:  
+```
+yarn install
+```
+#### Step 3:  
+```
+yarn build
+```
+#### Step 4:  
+```
+yarn start
+```
       
     
     
@@ -90,5 +119,6 @@ ________________________________________________________________________________
 - Important: your **sub-account name is case sensitive** - the name top right will display as all-caps, which is wrong. Go to your sub-account list and check for correct case sensitivity of your sub-account. Enter the name of sub-account. **If you are just using main account - leave sub-account name blank**.  
 - If you generated a key **from** main account - you can actually access any sub-account with the same keys by simply changing the sub-account name.  
 - If you generated keys **from** the sub-account the keys are restricted to use only in that sub-account.  
+- On Binance don't forget to generate keys from your FUTURES Account, and also edit your keys permissions to include "enable futures".  
    
-# [Go To User Manual Wiki Page](https://gitlab.com/Ichimikichiki/ichibot-client-app/-/wikis/Home/2-User-Manual)
+# [Go To Setting Up ichibot Wiki Page](https://gitlab.com/Ichimikichiki/ichibot-client-app/-/wikis/Home/1-Setting-up-ichibot)
