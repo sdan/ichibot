@@ -12,11 +12,6 @@
 | Step 7 |  Make an alias (hotkey). While in **BTC-PERP>** type:  **`alias [ buy 0.001`**  - and hit enter. You should now have an **initrun.txt** file in your ichibot directory. Now to market buy 0.001 btc, just press **[** and enter. |
   
 **If you have a need to run multiple instances for whatever reason, you should use separate API keys to avoid errors with your session.**  
- 
-- [ ]  Ignore this error message on first use - it's normal!
-
-![Screen_Shot_2020-10-09_at_7.47.08_am](https://gitlab.com/Ichimikichiki/ichibot-wiki/-/wikis/uploads/83fe4bdb27221ddd6c94c18fa84a21d2/Screen_Shot_2020-10-09_at_7.47.08_am.png)  
-### **That just means the bot hasn't detected your `initrun.txt` file, because you haven't made one yet. More on that on the next page.**  
    
 ## Extra Step for MacOS or Linux once downloaded the above   
 Go to directory in Terminal and navigate to wherever you put ichibot (downloads etc). Or stick ichibot in a folder in your root directory.  
@@ -30,11 +25,11 @@ Go to directory in Terminal and navigate to wherever you put ichibot (downloads 
 Then just double click the app to launch  
   
 **Windows**
-Just double click the app or if that doesn't stay open then open a CMD terminal and drag and drop ichibot-win.exe into the CMD window   
+Just double click the app or **if it doesn't stay open then open a terminal window and drag ichibot-win.exe and drop it into the command prompt window   
    
       
 _______________________________________________________________________________________________________  
- ### Steps for MacOS and Linux:
+ # Compile yourself steps for MacOS and Linux:
  Tested on Ubuntu 18.04 and Ubuntu 20.04 and MacOS 10.15.6. Most have got it to work on Windows also.
    
 To Complete All Steps at Once - Copy and paste this **WHOLE THING** into a terminal window **at once** and hit enter    
@@ -64,52 +59,31 @@ export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || pr
 ```
  #### Step 3:  
 ```
-nvm install 12 && npm i -g yarn  
-```
-#### Step 4:  
-```
+nvm install 12 && npm i -g yarn
 git clone https://gitlab.com/Ichimikichiki/ichibot-client-app.git
-```
-#### Step 5:  
-```
 cd ichibot-client-app
-```
-#### Step 6:  
-```
 yarn install
-```
-#### Step 7:  
-```
 yarn build
 ```
-#### Start ichibot  
+#### Start ichibot   
 ```
 yarn start
 ```
 # When the time comes to do an update.  
 
 Navigate to ichibot folder, probably something like  
+  
 ```
 cd ichibot-client-app
-```
-#### Step 1:  
-```
 git pull
-```
-#### Step 2:  
-```
 yarn install
-```
-#### Step 3:  
-```
 yarn build
+  
 ```
-#### Step 4:  
+#### Start ichibot   
 ```
 yarn start
-```
-      
-    
+```  
     
 ______________________________________________________________________________________________
   
