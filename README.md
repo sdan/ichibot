@@ -5,7 +5,7 @@
 | ------------- | ----------  |
 | Step 1 | Download ichibot here **[Windows](https://gitlab.com/Ichimikichiki/ichibot-client-app/-/jobs/artifacts/master/download?job=build-windows) [MacOS](https://gitlab.com/Ichimikichiki/ichibot-client-app/-/jobs/artifacts/master/download?job=build-osx) and [Linux](https://gitlab.com/Ichimikichiki/ichibot-client-app/-/jobs/artifacts/master/download?job=build-linux)** These are compiled for you by Gitlab directly from the source code. MacOS and Linux users still need to run **chmod +x ichibot-macos** or **chmod +x ichibot-linux** - more detailed instructions further down the page if you need. Just reach out if you're stuck on this.  |
 | Step 2 |  Sign up to **[FTX using this link](https://ftx.com/#a=ichi)**  |
-| Step 3 |  If you're using Windows - open a terminal window and drag and drop the app into it.  |
+| Step 3 |  If you're using Windows - open a terminal window and **drag and drop the app into a terminal window**.  Or it'll likely just close as soon as you try to run it. Also take it **out** of the zip folder and put it on your desktop or somewhere.   |
 | Step 4 |  Follow instructions below to save your API keys. Once saved you should have a **ichibot-config-db-json** file saved in your ichibot directory.  |
 | Step 5 |  Set a fatfinger (max *individual* order size). Type **`fatfinger`** space amount (in BTC if you're in BTC-PERP still) `fatfinger 10` - for example to make each individual max order size 10 BTC's. |
 | Step 6 |  There is now a simulation mode where you can try out commands. Just type `simulation on` and when you're done type `simulation off` |
