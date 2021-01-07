@@ -32,19 +32,37 @@ ________________________________________________________________________________
  # Compile yourself steps for MacOS and Linux:
  Tested on Ubuntu 18.04 and Ubuntu 20.04 and MacOS 10.15.6. Most have got it to work on Windows also.
    
-To Complete All Steps at Once - Copy and paste this **WHOLE THING** into a terminal window **at once** and hit enter    
+
+#### If you want to compile the git yourself, I've actually made that very very simple to do. You don't need to know anything to do it. Simply copy and paste the following if you're on MacOS or Linux. Copy the whole thing and paste it all at once and hit enter:  
 ```
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.2/install.sh | bash && 
-export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm &&
-nvm install 12 && npm i -g yarn && git clone https://gitlab.com/Ichimikichiki/ichibot-client-app.git && cd ichibot-client-app && yarn install && yarn build && yarn start
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.2/install.sh |
+bash && export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" ||
+printf %s "${XDG_CONFIG_HOME}/nvm")"
+[ -s "$NVM_DIR/nvm.sh" ] &&
+\. "$NVM_DIR/nvm.sh" # This loads nvm &&
+nvm install 12 && npm i -g yarn &&
+git clone https://gitlab.com/Ichimikichiki/ichibot-client-app.git &&
+cd ichibot-client-app &&
+yarn install &&
+yarn build &&
+yarn build-standalone &&
+yarn start
 ```  
 That's it!  
-
-Should start within 20 seconds or so and just type login for the prompt to set up with your API keys (which are stored locally on your machine ONLY, in ichibot-config-db.json).
   
+Now when you want to start, just go to the directory `cd ichibot-client-app` and type `yarn start`.  
+You also just compiled three standalone apps in the ichibot-client-app directory called:  
+```
+ichibot-macos
+ichibot-linux
+ichibot-win.exe
+```
+  
+Now just type `login` for the prompt to set up with your API keys (which are stored locally on your machine ONLY, in ichibot-config-db.json).
+  
+# Go to the [wiki for the user manual](https://gitlab.com/Ichimikichiki/ichibot-client-app/-/wikis/home)  
 ________________________________________________________________________________
-
+# Break-down of what we did above
    
  # Step-by-step  
 
