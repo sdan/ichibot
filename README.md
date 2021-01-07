@@ -38,6 +38,7 @@ xcode-select --install
 ```
 
 #### If you want to compile the git yourself, I've actually made that very very simple to do. You don't need to know anything to do it. Simply copy and paste the following if you're on MacOS or Linux. Copy the whole thing and paste it all at once and hit enter:  
+(The && means once that command is done - do this next one) 
   
 ```
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.2/install.sh |
@@ -53,7 +54,7 @@ yarn build &&
 yarn build-standalone &&
 yarn start
 ```  
-That's it!  
+That's it!
   
 Now when you want to start, just go to the directory `cd ichibot-client-app` and type `yarn start`.  
 You also just compiled three standalone apps in the ichibot-client-app directory called:  

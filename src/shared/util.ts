@@ -308,3 +308,17 @@ export const getInitInstrument = (exchange: ExchangeLabel) => exchange === 'ftx'
 export type Defined<T> = T extends (undefined | null) ? never : T;
 
 export const isDefined = <T>(x: T | undefined | null): x is T => x !== undefined && x !== null;
+
+export const isBetween = (a: number, edgeA: number, edgeB: number) => {
+  const lesser = Math.min(edgeA, edgeB);
+  const greater = Math.max(edgeA, edgeB);
+  return lesser <= a && a <= greater;
+}
+
+export const splitMajorMinorVersion = (v: string | number): [number, number] => {
+  const versionParts = v.toString().split('.');
+
+  const major = parseInt(versionParts[0] ?? 0);
+  const minor = parseInt(versionParts[1] ?? 0);
+  return [major, minor];
+}

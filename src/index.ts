@@ -199,6 +199,9 @@ async function go() {
   const bot = new IchibotClient({
     wsUrl, getDataSafe, logger: output,
     debug: DEBUG, readInitFile, saveCmdToInit, clientDB,
+    process: {
+      exit: (ret) => process.exit(ret),
+    },
     io: {
       setPrompt,
       query,
