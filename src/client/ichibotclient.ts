@@ -89,6 +89,7 @@ export default class IchibotClient {
         this.close();
       }
 
+      this.wsHeaders['X-exchange'] = primaryExchange;
       const rpc: (RPC.Client & { intendedClose?: boolean }) = this.rpc = new RPC.Client(this.opts.wsUrl + `?primaryexchange=${primaryExchange}`, {
         autoconnect: false,
         reconnect: true,
