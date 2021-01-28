@@ -56,15 +56,14 @@ yarn start
 ```  
 That's it!
   
-Now when you want to start, just go to the directory `cd ichibot-client-app` and type `yarn start`.  
-You also just compiled three standalone apps in the ichibot-client-app directory called:  
+To run in the future, you can do the following (one line at a time this time)  
 ```
-ichibot-macos
-ichibot-linux
-ichibot-win.exe
+cd ichibot-client-app
+yarn start
 ```
+There are also standalone versions you just made as well called `ichibot-macos` `ichibot-linux` `ichibot-win.exe` in the ichibot-client-app directory.  
   
-Now just type `login` for the prompt to set up with your API keys (which are stored locally on your machine ONLY, in ichibot-config-db.json).
+Type `login` for the API key prompt to set up with your keys (which are stored locally on your machine ONLY, in ichibot-config-db.json).
   
 # Go to the [wiki for the user manual](https://gitlab.com/Ichimikichiki/ichibot-client-app/-/wikis/home)  
 ________________________________________________________________________________
