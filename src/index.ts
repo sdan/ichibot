@@ -198,6 +198,7 @@ function setPrompt(p: string) {
 async function go() {
   const bot = new IchibotClient({
     wsUrl, getDataSafe, logger: output,
+    omitConnectionQueryString: true,
     debug: DEBUG, readInitFile, saveCmdToInit, clientDB,
     process: {
       exit: (ret) => process.exit(ret),

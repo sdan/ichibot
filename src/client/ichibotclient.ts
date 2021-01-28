@@ -18,6 +18,7 @@ export interface ClientDB {
 
 export interface IchibotClientOpts {
   wsUrl: string;
+  omitConnectionQueryString?: boolean;
   getDataSafe: <T>(path: string, defaultValue: T) => T;
   logger: Logger;
   readInitFile: (exchange: ExchangeLabel) => {initLines: string[]};
@@ -83,14 +84,14 @@ export default class IchibotClient {
         throw new Error(`Cannot connect: no API keys present`);
       }
 
-      const primaryExchange = this.auth.exchange;
+      const primaryExchange = this.auth.exchange ?? 'ftx';
 
       if (this.rpc !== null) {
         this.close();
       }
 
       this.wsHeaders['X-exchange'] = primaryExchange;
-      const rpc: (RPC.Client & { intendedClose?: boolean }) = this.rpc = new RPC.Client(this.opts.wsUrl + `?primaryexchange=${primaryExchange}`, {
+      const rpc: (RPC.Client & { intendedClose?: boolean }) = this.rpc = new RPC.Client(this.opts.wsUrl + (this.opts.omitConnectionQueryString ? '' : `?primaryexchange=${primaryExchange}`), {
         autoconnect: false,
         reconnect: true,
         max_reconnects: 99999,
@@ -365,7 +366,13 @@ export default class IchibotClient {
           return answer;
         }
 
-        const exchange: ExchangeLabel = (await requestUntilValid('Exchange (b)inance/(f)tx: ', (s) => ['b', 'f'].includes(s[0].toLowerCase()))).startsWith('b') ? 'binance' : 'ftx';
+        const exchangeLabelAnswer = (
+          await requestUntilValid(
+            'Exchange (b)inance futs, (s)pot or (f)tx: ',
+            (s) => ['b', 's', 'f'].includes(s[0].toLowerCase()))).substring(0,1).toLowerCase();
+
+        const exchange: ExchangeLabel = exchangeLabelAnswer === 'b' ? 'binance' : exchangeLabelAnswer === 's' ? 'binance-spot' : 'ftx';
+
         const apiKey = (await requestUntilValid('Your API key: ', (s) => !!s));
         const apiSecret = (await requestUntilValid('Your API secret: ', (s) => !!s));
         const subAccount = exchange === 'ftx' ? (await requestUntilValid('Your FTX subaccount name (leave empty for none): ', () => true)) : '';
