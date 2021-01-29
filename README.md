@@ -32,7 +32,7 @@ ________________________________________________________________________________
  # Compile yourself steps for MacOS and Linux:
  Tested on Ubuntu 18.04 and Ubuntu 20.04 and MacOS 10.15.6. Most have got it to work on Windows also.
    
-*If youre on MacOS, you may have to install xcode command line tools
+*If youre on MacOS, you may have to install xcode command line tools*
 ```
 xcode-select --install
 ```
