@@ -99,7 +99,6 @@ export default class IchibotClient {
       });
 
       let dcTimeout: NodeJS.Timeout | null = null;
-
       rpc.connect();
       rpc.on('upgrade', (res: IncomingMessage) => {
         if (IS_NODEJS && res.headers['set-cookie']) {
@@ -333,8 +332,17 @@ export default class IchibotClient {
     await this.callRpc('bye', {});
     this.output.log('Clearing your credentials...')
     this.opts.clientDB.delete(getAuthSaveKey(this.auth?.friendlyName ?? 'default'));
+    this.opts.clientDB.delete(getCookieSaveKey(this.opts.wsUrl));
     this.auth = null;
     this.output.log('Done.');
+  }
+
+  public async handleQuit() {
+    this.output.log(`Signing out...`);
+    await this.callRpc('bye', {}).catch(() => null);
+    this.close();
+    this.opts.clientDB.delete(getCookieSaveKey(this.opts.wsUrl));
+    this.opts.process.exit(0);
   }
 
   async processCommand(cmd: string): Promise<{success: boolean, message?: string, data?: any}> {
@@ -346,10 +354,7 @@ export default class IchibotClient {
     }
 
     if (['exit', 'quit', 'q'].includes(a)) {
-      this.output.log(`Signing out...`);
-      await this.callRpc('bye', {}).catch(() => null);
-      this.close();
-      this.opts.process.exit(0);
+      this.handleQuit();
       return { success: true };
     }
 

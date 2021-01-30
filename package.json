@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "dist/index.js",
   "bin": "dist/index.js",
-  "repository": "git@gitlab.com:Ichimikichiki/ichibot-client-app.git",
+  "repository": "git@gitlab.com:Ichimikichiki/ichibot-client.git",
   "author": "",
   "license": "MIT",
   "private": true,
