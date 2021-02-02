@@ -84,7 +84,7 @@ export default class IchibotClient {
         throw new Error(`Cannot connect: no API keys present`);
       }
 
-      const primaryExchange = this.auth.exchange ?? 'ftx';
+      const primaryExchange = this.auth.exchange;
 
       if (this.rpc !== null) {
         this.close();
@@ -99,6 +99,7 @@ export default class IchibotClient {
       });
 
       let dcTimeout: NodeJS.Timeout | null = null;
+
       rpc.connect();
       rpc.on('upgrade', (res: IncomingMessage) => {
         if (IS_NODEJS && res.headers['set-cookie']) {
@@ -332,17 +333,8 @@ export default class IchibotClient {
     await this.callRpc('bye', {});
     this.output.log('Clearing your credentials...')
     this.opts.clientDB.delete(getAuthSaveKey(this.auth?.friendlyName ?? 'default'));
-    this.opts.clientDB.delete(getCookieSaveKey(this.opts.wsUrl));
     this.auth = null;
     this.output.log('Done.');
-  }
-
-  public async handleQuit() {
-    this.output.log(`Signing out...`);
-    await this.callRpc('bye', {}).catch(() => null);
-    this.close();
-    this.opts.clientDB.delete(getCookieSaveKey(this.opts.wsUrl));
-    this.opts.process.exit(0);
   }
 
   async processCommand(cmd: string): Promise<{success: boolean, message?: string, data?: any}> {
@@ -354,7 +346,10 @@ export default class IchibotClient {
     }
 
     if (['exit', 'quit', 'q'].includes(a)) {
-      this.handleQuit();
+      this.output.log(`Signing out...`);
+      await this.callRpc('bye', {}).catch(() => null);
+      this.close();
+      this.opts.process.exit(0);
       return { success: true };
     }
 
@@ -371,13 +366,7 @@ export default class IchibotClient {
           return answer;
         }
 
-        const exchangeLabelAnswer = (
-          await requestUntilValid(
-            'Exchange (b)inance futs, (s)pot or (f)tx: ',
-            (s) => ['b', 's', 'f'].includes(s[0].toLowerCase()))).substring(0,1).toLowerCase();
-
-        const exchange: ExchangeLabel = exchangeLabelAnswer === 'b' ? 'binance' : exchangeLabelAnswer === 's' ? 'binance-spot' : 'ftx';
-
+        const exchange: ExchangeLabel = (await requestUntilValid('Exchange (b)inance/(f)tx: ', (s) => ['b', 'f'].includes(s[0].toLowerCase()))).startsWith('b') ? 'binance' : 'ftx';
         const apiKey = (await requestUntilValid('Your API key: ', (s) => !!s));
         const apiSecret = (await requestUntilValid('Your API secret: ', (s) => !!s));
         const subAccount = exchange === 'ftx' ? (await requestUntilValid('Your FTX subaccount name (leave empty for none): ', () => true)) : '';
