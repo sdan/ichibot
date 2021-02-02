@@ -842,7 +842,7 @@ reusify@^1.0.4:
 
 "rpc-websockets@https://gitlab.com/Ichimikichiki/rpc-websockets.git#be2468a":
   version "7.4.8"
-  resolved "git+ssh://git@gitlab.com/Ichimikichiki/rpc-websockets.git#be2468aa0b2c3d1143abf77536a27831f0087e47"
+  resolved "https://gitlab.com/Ichimikichiki/rpc-websockets.git#be2468aa0b2c3d1143abf77536a27831f0087e47"
   dependencies:
     "@babel/runtime" "^7.11.2"
     assert-args "^1.2.1"
