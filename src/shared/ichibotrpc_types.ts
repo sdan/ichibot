@@ -1,7 +1,7 @@
 import { ParameterType } from "./util";
 import { ExchangeLabel } from './types';
 
-export const APP_VERSION = "17.1";
+export const APP_VERSION = "18.0";
 
 export const ALL_SYM = '*';
 export const symFriendlyName = (s: string | null): string => (s === null || s === '*') ? 'global' : s;

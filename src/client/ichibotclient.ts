@@ -1,6 +1,6 @@
 import { IchibotRPC, AuthArgs, MessageNotification, ContextNotification, GlobalContext, ALL_SYM, APP_VERSION } from '../shared/ichibotrpc_types';
 import * as RPC from 'rpc-websockets';
-import { ParameterType, Logger, isReplacementDefinition, splitMajorMinorVersion } from '../shared/util';
+import { ParameterType, Logger, isReplacementDefinition, splitMajorMinorVersion, waitUntil } from '../shared/util';
 import { CONSOLE_COLORS } from './constants';
 import { ExchangeLabel } from '../shared/types';
 import { IncomingMessage } from 'http';
@@ -37,7 +37,7 @@ export interface IchibotClientOpts {
 const IS_NODEJS = typeof window === 'undefined';
 
 const getAuthSaveKey = (friendlyName: string): string => `/auth-${friendlyName}`;
-const getCookieSaveKey = (serverUrl: string): string => `/cookie_${serverUrl.replace(/[:\/.]/g, '_')}`;
+const getCookieSaveKey = (serverUrl: string, exchangeFriendlyName: string): string => `/cookie_${serverUrl.replace(/[:\/.]/g, '_')}_${exchangeFriendlyName}`;
 
 export default class IchibotClient {
   private rpc: (RPC.Client & { intendedClose?: boolean }) | null = null;
@@ -50,22 +50,27 @@ export default class IchibotClient {
 
   private isFirstLogin: boolean = true;
 
+  private activeLoginsByFriendlyName: Set<string> = new Set();
+
   // Sort of a hack to allow updating the Cookie header dynamically in case there's a reconnection so we can apply the newest one, because the RPC lib doesn't allow us a direct route to apply new headers per each reconnection
   private readonly wsHeaders: Record<string, string> = {};
 
   constructor(private opts: IchibotClientOpts)  {
-    const {wsUrl} = opts;
-
     this.output = opts.logger;
 
-    const currentCookie = IS_NODEJS ? opts.clientDB.filter('/', (_item, key) => key === getCookieSaveKey(wsUrl).replace('/', ''))?.[0] : undefined;
+    this.applyAuthFromStore(null, null);
+  }
+
+  private applyAuthFromStore(exchange: ExchangeLabel | null, name: string | null): void {
+    const currentCookie = IS_NODEJS ? this.opts.clientDB.filter('/', (_item, key) => key === getCookieSaveKey(this.opts.wsUrl, name ?? 'default').replace('/', ''))?.[0] : undefined;
 
     if (typeof currentCookie === 'string') {
       this.wsHeaders.Cookie = currentCookie;
     }
 
-    const potentialAuths = opts.clientDB.filter('/', (_item, key) => typeof key === 'string' && key.startsWith('auth'));
-    this.auth = (!potentialAuths || potentialAuths.length === 0) ? null : potentialAuths.find((auth: AuthArgs['auth']) => auth.friendlyName === 'default') ?? potentialAuths[0];
+    const potentialAuths = this.opts.clientDB.filter('/', (item: AuthArgs['auth'], key) => typeof key === 'string' && key.startsWith('auth') && (!exchange || item?.exchange === exchange)) ?? [];
+    const matchingAuth = (!potentialAuths || potentialAuths.length === 0) ? null : potentialAuths.find((auth: AuthArgs['auth']) => auth.friendlyName === (name || 'default'));
+    this.auth = matchingAuth ?? (name ? null : potentialAuths[0]);
   }
 
   private notifyReconnect = false;
@@ -74,6 +79,7 @@ export default class IchibotClient {
     if (this.rpc !== null) {
       this.rpc.intendedClose = true;
       this.rpc.close();
+      await waitUntil(() => !this.isConnected, 100);
       this.rpc = null;
     }
   }
@@ -84,7 +90,7 @@ export default class IchibotClient {
         throw new Error(`Cannot connect: no API keys present`);
       }
 
-      const primaryExchange = this.auth.exchange;
+      const primaryExchange = this.auth.exchange ?? 'ftx';
 
       if (this.rpc !== null) {
         this.close();
@@ -99,13 +105,12 @@ export default class IchibotClient {
       });
 
       let dcTimeout: NodeJS.Timeout | null = null;
-
       rpc.connect();
       rpc.on('upgrade', (res: IncomingMessage) => {
         if (IS_NODEJS && res.headers['set-cookie']) {
           const newCookies = res.headers['set-cookie'].map((s) => s.split(';')[0]).join('; ');
           this.wsHeaders.Cookie = newCookies;
-          this.opts.clientDB.push(getCookieSaveKey(this.opts.wsUrl), newCookies);
+          this.opts.clientDB.push(getCookieSaveKey(this.opts.wsUrl, this.auth?.friendlyName ?? 'default'), newCookies);
         }
       });
       rpc.on('error', () => {
@@ -121,7 +126,7 @@ export default class IchibotClient {
           }
           clearTimeout(dcTimeout);
         } else {
-          this.output.log('Connection open');
+          this.output.log(`Connection open to ${this.auth?.friendlyName ?? 'server'}`);
         }
         this.notifyReconnect = false;
         this.login().catch((err) => {
@@ -129,11 +134,11 @@ export default class IchibotClient {
         });
       });
       rpc.on('close', () => {
+        this.isConnected = false;
         if (rpc.intendedClose) {
           clearInterval(pokeInterval);
           return;
         }
-        this.isConnected = false;
         dcTimeout = setTimeout(() => {
           this.output.log('Connection closed, trying to reconnect...');
         }, 10000)
@@ -310,6 +315,7 @@ export default class IchibotClient {
     }
 
     const result = await this.callRpc('hello', {name: 'donut', version: CLIENT_VERSION_FULL, initLines});
+    this.activeLoginsByFriendlyName.add(this.auth.friendlyName);
 
     const [serverMajor, serverMinor] = splitMajorMinorVersion(result.version);
 
@@ -330,11 +336,31 @@ export default class IchibotClient {
 
   public async logout() {
     this.output.log(`Signing out...`);
+    const auth = this.auth;
     await this.callRpc('bye', {});
-    this.output.log('Clearing your credentials...')
-    this.opts.clientDB.delete(getAuthSaveKey(this.auth?.friendlyName ?? 'default'));
+    await this.close();
+    this.output.log(`Clearing your credentials for ${this.auth?.friendlyName ?? 'the current connection'}...`)
+    this.activeLoginsByFriendlyName.delete(auth?.friendlyName ?? 'default');
+    this.opts.clientDB.delete(getAuthSaveKey(auth?.friendlyName ?? 'default'));
+    this.opts.clientDB.delete(getCookieSaveKey(this.opts.wsUrl, auth?.friendlyName ?? 'default'));
     this.auth = null;
     this.output.log('Done.');
+  }
+
+  public async handleQuit() {
+    while (this.activeLoginsByFriendlyName.size > 0) {
+      if (!this.isConnected) {
+        this.applyAuthFromStore(null, Array.from(this.activeLoginsByFriendlyName.values())[0] ?? null);
+        await this.connect();
+      }
+      const auth = this.auth;
+      this.output.log(`Signing out from ${this.auth?.friendlyName}...`);
+      await this.callRpc('bye', {}).catch(() => null);
+      this.activeLoginsByFriendlyName.delete(auth?.friendlyName ?? 'default');
+      await this.close();
+      this.opts.clientDB.delete(getCookieSaveKey(this.opts.wsUrl, auth?.friendlyName ?? 'default'));
+    }
+    this.opts.process.exit(0);
   }
 
   async processCommand(cmd: string): Promise<{success: boolean, message?: string, data?: any}> {
@@ -346,10 +372,7 @@ export default class IchibotClient {
     }
 
     if (['exit', 'quit', 'q'].includes(a)) {
-      this.output.log(`Signing out...`);
-      await this.callRpc('bye', {}).catch(() => null);
-      this.close();
-      this.opts.process.exit(0);
+      await this.handleQuit();
       return { success: true };
     }
 
@@ -358,23 +381,43 @@ export default class IchibotClient {
       try {
         this.isInLoginProcess = true;
 
-        const requestUntilValid = async (msg: string, validator: (s: string) => boolean): Promise<string> => {
-          let answer: string;
-          do {
-            answer = (await this.query(msg)).trim();
-          } while (!validator(answer))
-          return answer;
+        if (this.isConnected) {
+          this.output.log('Closing existing connection...')
+          await this.close();
         }
 
-        const exchange: ExchangeLabel = (await requestUntilValid('Exchange (b)inance/(f)tx: ', (s) => ['b', 'f'].includes(s[0].toLowerCase()))).startsWith('b') ? 'binance' : 'ftx';
-        const apiKey = (await requestUntilValid('Your API key: ', (s) => !!s));
-        const apiSecret = (await requestUntilValid('Your API secret: ', (s) => !!s));
-        const subAccount = exchange === 'ftx' ? (await requestUntilValid('Your FTX subaccount name (leave empty for none): ', () => true)) : '';
-        const friendlyName = (await requestUntilValid('Name these credentials (leave empty for making default): ', () => true)) || 'default';
+        if (b) {
+          this.applyAuthFromStore(null, b);
+          if (!this.auth) {
+            this.output.error(`Could not find saved key with name "${b}"`);
+            return { success: false };
+          }
+        } else {
+          const requestUntilValid = async (msg: string, validator: (s: string) => boolean): Promise<string> => {
+            let answer: string;
+            do {
+              answer = (await this.query(msg)).trim();
+            } while (!validator(answer))
+            return answer;
+          }
 
-        this.auth = { apiKey, apiSecret, subAccount, exchange, friendlyName };
-        this.opts.clientDB.push(getAuthSaveKey(friendlyName), this.auth);
-        this.output.log('API key saved. To clear current credentials please type "logout".')
+          const exchangeLabelAnswer = (
+            await requestUntilValid(
+              'Exchange (b)inance futs, (s)pot or (f)tx: ',
+              (s) => ['b', 's', 'f'].includes(s[0].toLowerCase()))).substring(0,1).toLowerCase();
+
+          const exchange: ExchangeLabel = exchangeLabelAnswer === 'b' ? 'binance' : exchangeLabelAnswer === 's' ? 'binance-spot' : 'ftx';
+
+          const apiKey = (await requestUntilValid('Your API key: ', (s) => !!s));
+          const apiSecret = (await requestUntilValid('Your API secret: ', (s) => !!s));
+          const subAccount = exchange === 'ftx' ? (await requestUntilValid('Your FTX subaccount name (leave empty for none): ', () => true)) : '';
+          const friendlyName = (await requestUntilValid('Name these credentials (empty = "default"): ', () => true)) || 'default';
+
+          this.auth = { apiKey, apiSecret, subAccount, exchange, friendlyName };
+          this.opts.clientDB.push(getAuthSaveKey(friendlyName), this.auth);
+          this.output.log('API key saved. To clear current credentials please type "logout".')
+        }
+
         await this.login().catch((err) => {
           this.output.error(`Login failed:`, err.message);
         });
@@ -386,7 +429,6 @@ export default class IchibotClient {
         this.isInLoginProcess = false;
       }
       return { success }
-
     } else {
       if (!this.auth) {
         this.output.log(`It seems you have not inserted your API key yet. Please type 'login' to start.`);
