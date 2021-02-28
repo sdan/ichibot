@@ -11,42 +11,44 @@
 | Step 6 |  There is now a simulation mode where you can try out commands. Just type `simulation on` and when you're done type `simulation off` |
 | Step 7 |  Make an alias (hotkey). While in **BTC-PERP>** type:  **`alias [ buy 0.001`**  - and hit enter. You should now have an **initrun.txt** file in your ichibot directory. Now to market buy 0.001 btc, just press **[** and enter. |
   
-**If you have a need to run multiple instances for whatever reason, you should use separate API keys to avoid errors with your session.**  
+-  [ ] **Do NOT run multiple instances connected to the same account at the same time**
    
 ## Extra Step for MacOS or Linux once downloaded the above   
 Go to directory in Terminal and navigate to wherever you put ichibot (downloads etc). Or stick ichibot in a folder in your root directory.  
   
 **Extra Steps on MacOS or Linux**
+-  [ ] `cd Downloads` (Or whatever directory ichibot is in)  
+-  [ ] `chmod +x ichibot-macos` or `chmod +x ichibot-linux`  
   
-**MacOS and Linux**  
-`cd Downloads` or whatever directory/path ichibot is in  
-`chmod +x ichibot-macos` or `chmod +x ichibot-linux`  
-  
-Then just double click the app to launch  
+Then:
+-  [ ] just `double click on the app` to launch 
+-  [ ] alternatively type: `./ichibot-macos` or if linux type: `./ichibot-linux`   
   
 **Windows**
-Just double click the app or **if it doesn't stay open then open a terminal window and drag ichibot-win.exe and drop it into the command prompt window   
+-  [ ] Just double click the app
+-  [ ] however if it opens and closes real quick - then open a cmd (terminal) window, and drag ichibot-win.exe and drop it into the black of the cmd (terminal) window   
+-  [ ] can also open cmd window and type: `cd Desktop` (or wherever you put it) and then type: `ichibot-win.exe`  to run it.  
    
       
 _______________________________________________________________________________________________________  
  # Compile yourself steps for MacOS and Linux:
  Tested on Ubuntu 18.04 and Ubuntu 20.04 and MacOS 10.15.6. Most have got it to work on Windows also.
    
-*If youre on MacOS, you may have to install xcode command line tools
-```
+*If youre on MacOS, you may have to install xcode command line tools*
+```yml
 xcode-select --install
 ```
-
-#### If you want to compile the git yourself, I've actually made that very very simple to do. You don't need to know anything to do it. Simply copy and paste the following if you're on MacOS or Linux. Copy the whole thing and paste it all at once and hit enter:  
-(The && means once that command is done - do this next one) 
   
-```
+#### If you want to compile the git yourself, I've actually made that very very simple to do. You don't need to know anything to do it. Simply copy and paste the following if you're on MacOS or Linux. Copy the whole thing and paste it all at once and hit enter:  
+**The `&&` means once that command is done - follow on with this next command automatically**  
+  
+```bash
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.2/install.sh |
 bash && export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" ||
 printf %s "${XDG_CONFIG_HOME}/nvm")"
 [ -s "$NVM_DIR/nvm.sh" ] &&
 \. "$NVM_DIR/nvm.sh" # This loads nvm &&
-nvm install 12 && npm i -g yarn &&
+nvm install 13 && npm i -g yarn &&
 git clone https://gitlab.com/Ichimikichiki/ichibot-client-app.git &&
 cd ichibot-client-app &&
 yarn install &&
@@ -54,10 +56,10 @@ yarn build &&
 yarn build-standalone &&
 yarn start
 ```  
-That's it!
-  
+That's it!  
+    
 To run in the future, you can do the following (one line at a time this time)  
-```
+```yml
 cd ichibot-client-app
 yarn start
 ```
@@ -72,16 +74,16 @@ ________________________________________________________________________________
  # Step-by-step  
 
 #### Step 1:  
-```
+```yml
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.2/install.sh | bash
 ```
 #### Step 2:    
-```
+```bash
 export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
 ```
  #### Step 3:  
-```
+```yml
 nvm install 12 && npm i -g yarn
 git clone https://gitlab.com/Ichimikichiki/ichibot-client-app.git
 cd ichibot-client-app
@@ -89,24 +91,20 @@ yarn install
 yarn build
 ```
 #### Start ichibot   
-```
+```yml
 yarn start
 ```
-# When the time comes to do an update.  
+# When the time comes to do an _update_.  
 
 Navigate to ichibot folder, probably something like  
   
-```
+```yml
 cd ichibot-client-app
 git pull
 yarn install
 yarn build
-  
-```
-#### Start ichibot   
-```
 yarn start
-```  
+```    
     
 ______________________________________________________________________________________________
   
