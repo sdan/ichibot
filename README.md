@@ -53,7 +53,6 @@ git clone https://gitlab.com/Ichimikichiki/ichibot-client-app.git &&
 cd ichibot-client-app &&
 yarn install &&
 yarn build &&
-yarn build-standalone &&
 yarn start
 ```  
 That's it!  
