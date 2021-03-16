@@ -1,4 +1,4 @@
-# Try the wiki [here for easier to follow user manual](https://gitlab.com/Ichimikichiki/ichibot-client-app/-/wikis/home)
+# [Go to the wiki here for the operating manual](https://gitlab.com/Ichimikichiki/ichibot-client-app/-/wikis/home)
 
   
 | | **STEPS TO SET UP ICHIBOT**      |    
