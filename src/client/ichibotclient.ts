@@ -1,14 +1,17 @@
-import { IchibotRPC, AuthArgs, MessageNotification, ContextNotification, GlobalContext, ALL_SYM, APP_VERSION } from '../shared/ichibotrpc_types';
-import * as RPC from 'rpc-websockets';
-import { ParameterType, Logger, isReplacementDefinition, splitMajorMinorVersion, waitUntil } from '../shared/util';
+import { IchibotRPC, AuthArgs, MessageNotification, ContextNotification, GlobalContext, ALL_SYM, APP_VERSION, InstructionNotification } from '../shared/ichibotrpc_types';
+import WebSocket from 'ws';
+import { Cable, Waterfall, exponentialTruncatedBackoff } from "hydrated-ws";
+import { ParameterType, Logger, isReplacementDefinition, splitMajorMinorVersion, waitUntil, exhaustiveCheck } from '../shared/util';
 import { CONSOLE_COLORS } from './constants';
 import { ExchangeLabel } from '../shared/types';
 import { IncomingMessage } from 'http';
+import { v4 as uuid } from '../uuid';
 
 const CLIENT_VERSION_FULL = APP_VERSION;
 const [CLIENT_VERSION_MAJOR, CLIENT_VERSION_MINOR] = splitMajorMinorVersion(CLIENT_VERSION_FULL);
 
 const COL = CONSOLE_COLORS;
+const POKE_INTERVAL = 5000;
 
 export interface ClientDB {
   push: (key: string, value: any) => void;
@@ -17,7 +20,8 @@ export interface ClientDB {
 }
 
 export interface IchibotClientOpts {
-  wsUrl: string;
+  wsUrlA: string;
+  wsUrlB: string;
   omitConnectionQueryString?: boolean;
   getDataSafe: <T>(path: string, defaultValue: T) => T;
   logger: Logger;
@@ -34,13 +38,84 @@ export interface IchibotClientOpts {
   }
 }
 
+type HeartbreakerInternals = {
+  waterfall: Waterfall;
+  pingMs: number;
+  msg?: string;
+  resetMs: number;
+  lastMs: number;
+  pingTimer?: NodeJS.Timeout;
+  checkTimer?: NodeJS.Timeout;
+};
+
+class Heartbreaker {
+  private internals: HeartbreakerInternals;
+  constructor(waterfall: Waterfall, pingMs: number, resetMs: number, msg?: string) {
+    const internals: HeartbreakerInternals = {
+      waterfall,
+      pingMs,
+      msg,
+      resetMs,
+      lastMs: Date.now(),
+      pingTimer: undefined,
+      checkTimer: undefined,
+    };
+    const thisHb = this;
+    const ping =
+      msg === undefined
+        ? () => {
+            if (internals.waterfall.readyState !== WebSocket.OPEN) {
+              internals.lastMs = Date.now();
+            }
+          }
+        : () => {
+            if (internals.waterfall.readyState === WebSocket.OPEN) {
+              try {
+                internals.waterfall.send(internals.msg!);
+              } catch {
+              } finally {
+                return;
+              }
+            }
+            internals.lastMs = Date.now();
+          };
+    const check = () => {
+      setImmediate(() => {
+        if (Date.now() > internals.lastMs + resetMs) {
+          thisHb.reset();
+        }
+      });
+    };
+    const open = () => {
+      internals.pingTimer && clearInterval(internals.pingTimer);
+      internals.checkTimer && clearInterval(internals.checkTimer);
+      internals.pingTimer = setInterval(ping, pingMs);
+      internals.checkTimer = setInterval(check, resetMs);
+    };
+    internals.waterfall.addEventListener('open', open);
+    open();
+    this.internals = internals;
+  }
+  public pong() {
+    this.internals.lastMs = Date.now();
+  }
+  public reset() {
+    const { internals } = this;
+    internals.waterfall.reset();
+    internals.pingTimer && clearInterval(internals.pingTimer);
+    internals.checkTimer && clearInterval(internals.checkTimer);
+  }
+}
+
 const IS_NODEJS = typeof window === 'undefined';
 
 const getAuthSaveKey = (friendlyName: string): string => `/auth-${friendlyName}`;
 const getCookieSaveKey = (serverUrl: string, exchangeFriendlyName: string): string => `/cookie_${serverUrl.replace(/[:\/.]/g, '_')}_${exchangeFriendlyName}`;
 
 export default class IchibotClient {
-  private rpc: (RPC.Client & { intendedClose?: boolean }) | null = null;
+  private ws: (Waterfall & { intendedClose?: boolean }) | null = null;
+  private internalWs: WebSocket | null = null;
+  private cable: Cable | null = null;
   private auth: AuthArgs['auth'] | null = null;
   private context: GlobalContext | null = null;
 
@@ -51,18 +126,23 @@ export default class IchibotClient {
   private isFirstLogin: boolean = true;
 
   private activeLoginsByFriendlyName: Set<string> = new Set();
+  private clientId: string;
 
   // Sort of a hack to allow updating the Cookie header dynamically in case there's a reconnection so we can apply the newest one, because the RPC lib doesn't allow us a direct route to apply new headers per each reconnection
   private readonly wsHeaders: Record<string, string> = {};
 
+  private notifyConnect = true;
+
   constructor(private opts: IchibotClientOpts)  {
     this.output = opts.logger;
 
+    this.clientId = this.ensureClientId();
     this.applyAuthFromStore(null, null);
+    this.wsHeaders['client-ws-library'] = 'hydrated-ws';
   }
 
   private applyAuthFromStore(exchange: ExchangeLabel | null, name: string | null): void {
-    const currentCookie = IS_NODEJS ? this.opts.clientDB.filter('/', (_item, key) => key === getCookieSaveKey(this.opts.wsUrl, name ?? 'default').replace('/', ''))?.[0] : undefined;
+    const currentCookie = IS_NODEJS ? this.opts.clientDB.filter('/', (_item, key) => key === getCookieSaveKey(this.ws?.url ?? '', name ?? 'default').replace('/', ''))?.[0] : undefined;
 
     if (typeof currentCookie === 'string') {
       this.wsHeaders.Cookie = currentCookie;
@@ -73,109 +153,153 @@ export default class IchibotClient {
     this.auth = matchingAuth ?? (name ? null : potentialAuths[0]);
   }
 
-  private notifyReconnect = false;
+  private ensureClientId(): string {
+    const CLIENT_ID_KEY = 'client-id';
+    let clientId = this.opts.clientDB.filter('/', (_item: string, key) => typeof key === 'string' && key === CLIENT_ID_KEY)?.[0];
+    if (!clientId) {
+      clientId = uuid();
+      this.opts.clientDB.push(`/${CLIENT_ID_KEY}`, clientId);
+    }
+    return clientId;
+  }
 
   private async close(): Promise<void> {
-    if (this.rpc !== null) {
-      this.rpc.intendedClose = true;
-      this.rpc.close();
-      await waitUntil(() => !this.isConnected, 100);
-      this.rpc = null;
+    if (this.ws !== null) {
+      this.ws.intendedClose = true;
+      this.ws.close();
+      await waitUntil(() => this.ws!.readyState === WebSocket.CLOSED, 100);
+      this.ws = null;
     }
   }
 
   private async connect(): Promise<void> {
+    const ichibotClient = this;
     return new Promise(async (resolve) => {
       if (!this.auth) {
         throw new Error(`Cannot connect: no API keys present`);
       }
 
-      const primaryExchange = this.auth.exchange ?? 'ftx';
+      let resolved = false;
 
-      if (this.rpc !== null) {
-        this.close();
+      const primaryExchange = this.auth.exchange;
+
+      if (this.ws !== null) {
+        this.output.log(`Attempting to close an existing websocket connection before starting a new one.`);
+        await this.close();
       }
 
       this.wsHeaders['X-exchange'] = primaryExchange;
-      const rpc: (RPC.Client & { intendedClose?: boolean }) = this.rpc = new RPC.Client(this.opts.wsUrl + (this.opts.omitConnectionQueryString ? '' : `?primaryexchange=${primaryExchange}`), {
-        autoconnect: false,
-        reconnect: true,
-        max_reconnects: 99999,
-        headers: this.wsHeaders,
+      const wsUrl =
+        primaryExchange === 'bybit'
+          ? this.opts.wsUrlB
+          : this.opts.wsUrlA +
+            (this.opts.omitConnectionQueryString ? '' : `?primaryexchange=${primaryExchange}`);
+      let hb: Heartbreaker;
+      this.ws = new Waterfall(wsUrl, undefined, {
+        connectionTimeout: 2000,
+        emitClose: true,
+        retryPolicy: exponentialTruncatedBackoff(100, 8),
+        // @ts-ignore - dispatchEvent not implemented
+        factory: (url, protocols) => {
+          const ws = new WebSocket(url, protocols, {
+            perMessageDeflate: false,
+            headers: this.wsHeaders,
+          });
+          ws.on('upgrade', (res: IncomingMessage) => {
+            if (IS_NODEJS && res.headers['set-cookie']) {
+              const newCookies = res.headers['set-cookie'].map((s) => s.split(';')[0]).join('; ');
+              this.wsHeaders.Cookie = newCookies;
+              this.opts.clientDB.push(
+                getCookieSaveKey(this.ws?.url ?? '', this.auth?.friendlyName ?? 'default'),
+                newCookies
+              );
+            }
+          });
+          ws.on('pong', () => {
+            hb.pong();
+          });
+          const pingInterval = setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.ping(() => {});
+            }
+          }, POKE_INTERVAL);
+          ws.on('close', () => {
+            clearInterval(pingInterval);
+          });
+          ichibotClient.internalWs = ws;
+          return ws;
+        },
       });
+      // @ts-ignore - dispatchEvent is not implemented for ws - https://github.com/websockets/ws/issues/1583
+      this.cable = new Cable(this.ws);
+      hb = new Heartbreaker(this.ws, 5000, 10000);
 
-      let dcTimeout: NodeJS.Timeout | null = null;
-      rpc.connect();
-      rpc.on('upgrade', (res: IncomingMessage) => {
-        if (IS_NODEJS && res.headers['set-cookie']) {
-          const newCookies = res.headers['set-cookie'].map((s) => s.split(';')[0]).join('; ');
-          this.wsHeaders.Cookie = newCookies;
-          this.opts.clientDB.push(getCookieSaveKey(this.opts.wsUrl, this.auth?.friendlyName ?? 'default'), newCookies);
+      this.ws.onerror = (ev) => {
+        if (ev.type === 'error') {
+          // @ts-ignore
+          this.output.debug(`Websocket error: ${ev.message}`);
         }
-      });
-      rpc.on('error', () => {
-        if (dcTimeout === null) {
-          this.output.error('Connection error to the server. Trying to reconnect...');
-        }
-      });
-      rpc.on('open', () => {
-        this.isConnected = true;
-        if (dcTimeout !== null) {
-          if (this.notifyReconnect) {
-            this.output.log('Reconnected');
-          }
-          clearTimeout(dcTimeout);
-        } else {
+      };
+
+      this.ws.onopen = () => {
+        if (this.notifyConnect) {
           this.output.log(`Connection open to ${this.auth?.friendlyName ?? 'server'}`);
+          this.notifyConnect = false;
         }
-        this.notifyReconnect = false;
         this.login().catch((err) => {
           this.output.error(`Failed to login:`, err.message);
         });
-      });
-      rpc.on('close', () => {
-        this.isConnected = false;
-        if (rpc.intendedClose) {
-          clearInterval(pokeInterval);
+        if (!resolved) {
+          resolved = true;
+          resolve();
+        }
+      };
+
+      this.ws.onclose = () => {
+        if (this.ws?.intendedClose) {
+          this.output.log(`Connection closed.`);
           return;
         }
-        dcTimeout = setTimeout(() => {
-          this.output.log('Connection closed, trying to reconnect...');
-        }, 10000)
-      });
-      rpc.on('feed', (msg: MessageNotification['params']) => {
-        if (msg.type === 'dir') {
-          this.output.dir(msg.message[0]);
-        } else if (msg.type === 'debug') {
-          if (this.opts.debug) {
-            this.output.debug(...msg.message);
-          }
-        } else {
-          this.output[msg.type](...msg.message);
+        if (!resolved) {
+          resolved = true;
+          resolve(); // accept input at prompt
         }
-      })
-      rpc.on('context', (msg: ContextNotification['params']) => {
-        this.context = msg;
-        this.refreshPrompt();
-      })
+      };
+
+      this.cable.register('IchibotRPCNotification', async data => {
+        const { notification, params } = data;
+        switch (notification) {
+          case 'feed':
+            let feed: MessageNotification['params'] = params;
+            if (feed.type === 'dir') {
+              this.output.dir(feed.message[0]);
+            } else if (feed.type === 'debug') {
+              if (this.opts.debug) {
+                this.output.debug(...feed.message);
+              }
+            } else {
+              this.output[feed.type](...feed.message);
+            }
+            break;
+          case 'context':
+            let context: ContextNotification['params'] = params;
+            this.context = context;
+            this.refreshPrompt();
+            break;
+          case 'instruction':
+            let inst: InstructionNotification['params'] = params;
+            if (inst.instruction === 'force-disconnect') {
+              this.output.warn(
+                `The server has terminated your session. You may connect again in this client by restarting or typing "login <name of your key>".`
+              );
+              this.close();
+            } else {
+              exhaustiveCheck(inst.instruction);
+            }
+        }
+      });
 
       this.output.log(`Initializing...`);
-
-      const POKE_INTERVAL = 5000;
-      const pokeInterval = setInterval(() => {
-        if (!this.isConnected) {
-          return;
-        }
-        this.callRpc('poke', {})
-          .then(() => {
-            this.lastPokeResponse = Date.now();
-          })
-          .catch(this.logError);
-      }, POKE_INTERVAL);
-
-      rpc.once('open', () => {
-        resolve();
-      });
 
       this.refreshPrompt();
     });
@@ -190,8 +314,16 @@ export default class IchibotClient {
   }
 
   private callRpc<T extends keyof IchibotRPC>(method: T, arg: Omit<ParameterType<IchibotRPC[T]>, 'auth'>): ReturnType<IchibotRPC[T]> {
-    if (!this.rpc) { throw new Error(`Could not send a request to Ichibot server: not connected`) };
-    return this.rpc.call(method, {auth: this.auth, ...arg, context: this.context}) as ReturnType<IchibotRPC[T]>;
+    if (this.ws?.readyState !== WebSocket.OPEN || this.internalWs?.readyState !== WebSocket.OPEN) {
+      this.notifyConnect = true;
+      throw new Error(`Could not send a request to Ichibot server: client is not connected.`);
+    }
+    return this.cable!.request(method, {
+      auth: this.auth,
+      ...arg,
+      context: this.context,
+      clientId: this.clientId,
+    }) as ReturnType<IchibotRPC[T]>;
   }
 
   private getPromptText() {
@@ -207,7 +339,6 @@ export default class IchibotClient {
     this.opts.io.setPrompt(this.getPromptText());
   }
 
-  private isConnected: boolean = false;
   private isInLoginProcess: boolean = false;
 
   public async start() {
@@ -292,7 +423,7 @@ export default class IchibotClient {
     }
 
     this.output.log(`Reloading init script from file`);
-    const { initLines } = this.opts.readInitFile(this.auth.exchange ?? 'ftx');
+    const { initLines } = this.opts.readInitFile(this.auth.exchange);
     if (this.context) {
       initLines.push(`instrument ${this.context.currentInstrument || '*'}`);
     }
@@ -300,16 +431,21 @@ export default class IchibotClient {
     return this.callRpc('reloadInit', { initLines, ...this.auth })
   }
 
-  public async login() {
+  public async login(force = false) {
+    if (this.isInLoginProcess && !force) return; 
+    return await this._login();
+  }
+
+  public async _login() {
     if (!this.auth) {
       return;
     }
 
-    if (!this.rpc) {
+    if (!this.ws) {
       await this.connect();
     }
 
-    const { initLines } = this.opts.readInitFile(this.auth.exchange ?? 'ftx');
+    const { initLines } = this.opts.readInitFile(this.auth.exchange);
     if (this.context) {
       initLines.push(`instrument ${this.context.currentInstrument || '*'}`);
     }
@@ -342,14 +478,14 @@ export default class IchibotClient {
     this.output.log(`Clearing your credentials for ${this.auth?.friendlyName ?? 'the current connection'}...`)
     this.activeLoginsByFriendlyName.delete(auth?.friendlyName ?? 'default');
     this.opts.clientDB.delete(getAuthSaveKey(auth?.friendlyName ?? 'default'));
-    this.opts.clientDB.delete(getCookieSaveKey(this.opts.wsUrl, auth?.friendlyName ?? 'default'));
+    this.opts.clientDB.delete(getCookieSaveKey(this.ws?.url ?? '', auth?.friendlyName ?? 'default'));
     this.auth = null;
     this.output.log('Done.');
   }
 
   public async handleQuit() {
     while (this.activeLoginsByFriendlyName.size > 0) {
-      if (!this.isConnected) {
+      if (this.ws?.readyState !== WebSocket.OPEN) {
         this.applyAuthFromStore(null, Array.from(this.activeLoginsByFriendlyName.values())[0] ?? null);
         await this.connect();
       }
@@ -358,7 +494,7 @@ export default class IchibotClient {
       await this.callRpc('bye', {}).catch(() => null);
       this.activeLoginsByFriendlyName.delete(auth?.friendlyName ?? 'default');
       await this.close();
-      this.opts.clientDB.delete(getCookieSaveKey(this.opts.wsUrl, auth?.friendlyName ?? 'default'));
+      this.opts.clientDB.delete(getCookieSaveKey(this.ws?.url ?? '', auth?.friendlyName ?? 'default'));
     }
     this.opts.process.exit(0);
   }
@@ -381,8 +517,8 @@ export default class IchibotClient {
       try {
         this.isInLoginProcess = true;
 
-        if (this.isConnected) {
-          this.output.log('Closing existing connection...')
+        if (this.ws !== null) {
+          this.output.log('Closing existing connection...');
           await this.close();
         }
 
@@ -403,10 +539,17 @@ export default class IchibotClient {
 
           const exchangeLabelAnswer = (
             await requestUntilValid(
-              'Exchange (b)inance futs, (s)pot or (f)tx: ',
-              (s) => ['b', 's', 'f'].includes(s[0].toLowerCase()))).substring(0,1).toLowerCase();
+              'Exchange: (b)inance futs, binance (s)pot, b(y)bit, (f)tx: ',
+              (s) => ['b', 's', 'y', 'f'].includes(s[0].toLowerCase()))).substring(0,1).toLowerCase();
 
-          const exchange: ExchangeLabel = exchangeLabelAnswer === 'b' ? 'binance' : exchangeLabelAnswer === 's' ? 'binance-spot' : 'ftx';
+          const exchangeLabelAnswerMap: { [k: string]: ExchangeLabel } = {
+            b: 'binance',
+            s: 'binance-spot',
+            y: 'bybit',
+            f: 'ftx',
+          };
+
+          const exchange: ExchangeLabel = exchangeLabelAnswerMap[exchangeLabelAnswer];
 
           const apiKey = (await requestUntilValid('Your API key: ', (s) => !!s));
           const apiSecret = (await requestUntilValid('Your API secret: ', (s) => !!s));
@@ -418,7 +561,7 @@ export default class IchibotClient {
           this.output.log('API key saved. To clear current credentials please type "logout".')
         }
 
-        await this.login().catch((err) => {
+        await this.login(true).catch((err) => {
           this.output.error(`Login failed:`, err.message);
         });
 
@@ -436,10 +579,13 @@ export default class IchibotClient {
       }
     }
 
-    if (!this.isConnected && !this.isInLoginProcess) {
-      this.output.log(`Lost connection to server, wait until reconnected.`);
-      this.notifyReconnect = true;
-      return { success: false, message: 'Not connected' };
+    if (
+      (this.ws?.readyState !== WebSocket.OPEN || this.internalWs?.readyState !== WebSocket.OPEN) &&
+      !this.isInLoginProcess
+    ) {
+      this.output.log(`Lost connection to server, please wait until reconnected.`);
+      this.notifyConnect = true;
+      return { success: false, message: 'Not connected.' };
     }
 
     const auth = this.auth;
@@ -478,6 +624,9 @@ export default class IchibotClient {
           this.opts.saveCmdToInit(auth.exchange, currentInstrument ?? ALL_SYM, ['alias', b, null], null);
         } else if (a === 'unreplace' && rest.length === 0) {
           this.opts.saveCmdToInit(auth.exchange, currentInstrument ?? ALL_SYM, ['replace', b, null], null);
+        }
+        if (result.message) {
+          this.output.log(result.message);
         }
       }
       return result;

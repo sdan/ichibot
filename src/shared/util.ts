@@ -303,7 +303,15 @@ export const subscribe = <T, E extends string>(o: {on: (e: E, fn: SubHandler<T>)
 export const isReplacementDefinition = (cmd: string): boolean =>
   /replace.+:.+/.test(cmd);
 
-export const getInitInstrument = (exchange: ExchangeLabel) => exchange === 'ftx' ? 'BTC-PERP' : 'BTCUSDT';
+export const getInitInstrument = (exchange: ExchangeLabel) => {
+  const instrumentMap: Record<ExchangeLabel, string> = {
+    binance: 'BTCUSDT',
+    "binance-spot": 'BTCUSDT',
+    bybit: 'BTCUSD',
+    ftx: 'BTC-PERP'
+  };
+  return instrumentMap[exchange];
+}
 
 export type Defined<T> = T extends (undefined | null) ? never : T;
 
@@ -318,7 +326,7 @@ export const isBetween = (a: number, edgeA: number, edgeB: number) => {
 export const splitMajorMinorVersion = (v: string | number): [number, number] => {
   const versionParts = v.toString().split('.');
 
-  const major = parseInt(versionParts[0] ?? 0);
-  const minor = parseInt(versionParts[1] ?? 0);
+  const major = parseInt(versionParts[0] ?? '0');
+  const minor = parseInt(versionParts[1] ?? '0');
   return [major, minor];
 }

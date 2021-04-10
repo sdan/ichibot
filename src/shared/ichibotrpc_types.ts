@@ -1,7 +1,7 @@
 import { ParameterType } from "./util";
 import { ExchangeLabel } from './types';
 
-export const APP_VERSION = "18.0";
+export const APP_VERSION = "19.0";
 
 export const ALL_SYM = '*';
 export const symFriendlyName = (s: string | null): string => (s === null || s === '*') ? 'global' : s;
@@ -24,12 +24,18 @@ export interface AuthArgs {
   }
 }
 
-export interface CommonArgs extends DebuggableArgs, AuthArgs {}
+export interface ClientArgs {
+  clientId?: string;
+}
+
+export interface CommonArgs extends DebuggableArgs, AuthArgs, ClientArgs {}
 
 export interface AliasMapping { [aliasName: string]: string }
 
 export interface IchibotRPC {
-  hello: (args: {name: string, version: number | string, initLines: string[]} & CommonArgs) => Promise<{
+  hello: (args: {
+    name: string, version: number | string, initLines: string[],
+  } & CommonArgs) => Promise<{
     instanceStarted: boolean;
     version: number | string;
   }>;
@@ -61,9 +67,18 @@ export interface MessageNotification {
   }
 }
 
+export type InstructionNotification = {
+  notification: 'instruction';
+  params: {
+    instruction: 'force-disconnect';
+    reason: string;
+  }
+}
+
 export type IchibotRPCNotification =
   | MessageNotification
   | ContextNotification
+  | InstructionNotification
   ;
 
 export interface RPCRequest<T extends keyof IchibotRPC> {

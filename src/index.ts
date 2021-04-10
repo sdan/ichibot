@@ -129,7 +129,8 @@ function saveCmdToInit(exchange: ExchangeLabel, contextSymbol: string, lineMatch
 };
 
 // process.env.SERVER_URL = 'ws://ichibot.trade.local:8888'
-const wsUrl = process.env.SERVER_URL || 'wss://beta.ichibot.trade:443';
+const wsUrlA = process.env.SERVER_URL || process.env.SERVER_URL_A || 'wss://beta.ichibot.trade:2053';
+const wsUrlB = process.env.SERVER_URL || process.env.SERVER_URL_B || 'wss://bybit.ichibot.trade:2053';
 
 export interface Config {
   exchange: ExchangeLabel;
@@ -197,7 +198,7 @@ function setPrompt(p: string) {
 
 async function go() {
   const bot = new IchibotClient({
-    wsUrl, getDataSafe, logger: output,
+    wsUrlA, wsUrlB, getDataSafe, logger: output,
     omitConnectionQueryString: true,
     debug: DEBUG, readInitFile, saveCmdToInit, clientDB,
     process: {
