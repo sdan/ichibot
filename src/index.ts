@@ -36,7 +36,7 @@ function readInitFile(exchange: ExchangeLabel): {initLines: string[]} {
 
   const filename = getInitFilePath(exchange);
   if (!existsSync(filename)) {
-    output.log(`Initfile ${filename} doesn't exist yet. Skipping user init script. If this is your first run or you didn't define any aliases yet, this is expected. If you do have a premade initfile make sure it's named exactly as shown.`);
+    output.log(`First time running ichibot. Initrun file ${filename} will be made once you save your first alias.`);
     return {initLines: []};
   }
 
@@ -190,6 +190,7 @@ const output: Logger = {
 }
 
 const DEBUG = !!process.env.DEBUG;
+const myArgs = process.argv.slice(2);
 
 function setPrompt(p: string) {
   r1.setPrompt(p);
@@ -207,7 +208,8 @@ async function go() {
     io: {
       setPrompt,
       query,
-    }
+    },
+    startWithFriendlyName: myArgs[0]
   });
   await bot.start();
 }

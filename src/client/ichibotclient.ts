@@ -1,7 +1,13 @@
 import { IchibotRPC, AuthArgs, MessageNotification, ContextNotification, GlobalContext, ALL_SYM, APP_VERSION, InstructionNotification } from '../shared/ichibotrpc_types';
 import WebSocket from 'ws';
 import { Cable, Waterfall, exponentialTruncatedBackoff } from "hydrated-ws";
-import { ParameterType, Logger, isReplacementDefinition, splitMajorMinorVersion, waitUntil, exhaustiveCheck } from '../shared/util';
+import {
+  ParameterType,
+  Logger,
+  isReplacementDefinition,
+  splitMajorMinorVersion,
+  exhaustiveCheck,
+} from '../shared/util';
 import { CONSOLE_COLORS } from './constants';
 import { ExchangeLabel } from '../shared/types';
 import { IncomingMessage } from 'http';
@@ -35,7 +41,8 @@ export interface IchibotClientOpts {
   io: {
     query?: (q: string) => Promise<string>;
     setPrompt: (p: string) => void;
-  }
+  },
+  startWithFriendlyName?: string
 }
 
 type HeartbreakerInternals = {
@@ -128,26 +135,57 @@ export default class IchibotClient {
   private activeLoginsByFriendlyName: Set<string> = new Set();
   private clientId: string;
 
-  // Sort of a hack to allow updating the Cookie header dynamically in case there's a reconnection so we can apply the newest one, because the RPC lib doesn't allow us a direct route to apply new headers per each reconnection
-  private readonly wsHeaders: Record<string, string> = {};
-
   private notifyConnect = true;
 
   constructor(private opts: IchibotClientOpts)  {
     this.output = opts.logger;
 
     this.clientId = this.ensureClientId();
-    this.applyAuthFromStore(null, null);
-    this.wsHeaders['client-ws-library'] = 'hydrated-ws';
+    this.startupApplyAuthFromStore(opts.startWithFriendlyName);
+  }
+
+  /*
+  Generate websocket URL based on exchange
+  */
+  private generateWsUrl(exchange: ExchangeLabel) {
+    return exchange === 'bybit'
+      ? this.opts.wsUrlB
+      : this.opts.wsUrlA +
+          (this.opts.omitConnectionQueryString ? '' : `?primaryexchange=${exchange}`);
+  }
+
+  private generateWsHeaders(exchange: ExchangeLabel, exchangeFriendlyName: string) {
+    const wsUrl = this.generateWsUrl(exchange);
+    const cookieSaveKey = getCookieSaveKey(wsUrl, exchangeFriendlyName);
+    const currentCookie = IS_NODEJS
+      ? this.opts.clientDB.filter('/', (_item, key) => key === cookieSaveKey.replace('/', ''))?.[0]
+      : undefined;
+    const wsHeaders: Record<string, string> = {
+      'client-ws-library': 'hydrated-ws',
+      'X-exchange': exchange,
+    };
+    if (typeof currentCookie === 'string') {
+      wsHeaders.Cookie = currentCookie;
+    }
+    return wsHeaders;
+  }
+
+  private startupApplyAuthFromStore(name?: string): void {
+    const potentialAuths =
+      this.opts.clientDB.filter(
+        '/',
+        (_item: AuthArgs['auth'], key) => typeof key === 'string' && key.startsWith('auth')
+      ) ?? [];
+    const matchingAuth =
+      !potentialAuths || potentialAuths.length === 0
+        ? null
+        : potentialAuths.find(
+            (auth: AuthArgs['auth']) => auth.friendlyName === (name || 'default')
+          );
+    this.auth = matchingAuth ?? potentialAuths[0];
   }
 
   private applyAuthFromStore(exchange: ExchangeLabel | null, name: string | null): void {
-    const currentCookie = IS_NODEJS ? this.opts.clientDB.filter('/', (_item, key) => key === getCookieSaveKey(this.ws?.url ?? '', name ?? 'default').replace('/', ''))?.[0] : undefined;
-
-    if (typeof currentCookie === 'string') {
-      this.wsHeaders.Cookie = currentCookie;
-    }
-
     const potentialAuths = this.opts.clientDB.filter('/', (item: AuthArgs['auth'], key) => typeof key === 'string' && key.startsWith('auth') && (!exchange || item?.exchange === exchange)) ?? [];
     const matchingAuth = (!potentialAuths || potentialAuths.length === 0) ? null : potentialAuths.find((auth: AuthArgs['auth']) => auth.friendlyName === (name || 'default'));
     this.auth = matchingAuth ?? (name ? null : potentialAuths[0]);
@@ -166,13 +204,14 @@ export default class IchibotClient {
   private async close(): Promise<void> {
     if (this.ws !== null) {
       this.ws.intendedClose = true;
+      this.cable?.destroy();
+      this.cable = null;
       this.ws.close();
-      await waitUntil(() => this.ws!.readyState === WebSocket.CLOSED, 100);
       this.ws = null;
     }
   }
 
-  private async connect(): Promise<void> {
+  private async connect(farewell = false): Promise<Cable> {
     const ichibotClient = this;
     return new Promise(async (resolve) => {
       if (!this.auth) {
@@ -182,18 +221,14 @@ export default class IchibotClient {
       let resolved = false;
 
       const primaryExchange = this.auth.exchange;
+      const friendlyName = this.auth?.friendlyName ?? 'default';
 
       if (this.ws !== null) {
         this.output.log(`Attempting to close an existing websocket connection before starting a new one.`);
         await this.close();
       }
 
-      this.wsHeaders['X-exchange'] = primaryExchange;
-      const wsUrl =
-        primaryExchange === 'bybit'
-          ? this.opts.wsUrlB
-          : this.opts.wsUrlA +
-            (this.opts.omitConnectionQueryString ? '' : `?primaryexchange=${primaryExchange}`);
+      const wsUrl = this.generateWsUrl(primaryExchange);
       let hb: Heartbreaker;
       this.ws = new Waterfall(wsUrl, undefined, {
         connectionTimeout: 2000,
@@ -203,16 +238,12 @@ export default class IchibotClient {
         factory: (url, protocols) => {
           const ws = new WebSocket(url, protocols, {
             perMessageDeflate: false,
-            headers: this.wsHeaders,
+            headers: this.generateWsHeaders(primaryExchange, friendlyName),
           });
           ws.on('upgrade', (res: IncomingMessage) => {
             if (IS_NODEJS && res.headers['set-cookie']) {
               const newCookies = res.headers['set-cookie'].map((s) => s.split(';')[0]).join('; ');
-              this.wsHeaders.Cookie = newCookies;
-              this.opts.clientDB.push(
-                getCookieSaveKey(this.ws?.url ?? '', this.auth?.friendlyName ?? 'default'),
-                newCookies
-              );
+              this.opts.clientDB.push(getCookieSaveKey(ws.url, friendlyName), newCookies);
             }
           });
           ws.on('pong', () => {
@@ -231,7 +262,7 @@ export default class IchibotClient {
         },
       });
       // @ts-ignore - dispatchEvent is not implemented for ws - https://github.com/websockets/ws/issues/1583
-      this.cable = new Cable(this.ws);
+      const cable = new Cable(this.ws);
       hb = new Heartbreaker(this.ws, 5000, 10000);
 
       this.ws.onerror = (ev) => {
@@ -246,12 +277,14 @@ export default class IchibotClient {
           this.output.log(`Connection open to ${this.auth?.friendlyName ?? 'server'}`);
           this.notifyConnect = false;
         }
-        this.login().catch((err) => {
-          this.output.error(`Failed to login:`, err.message);
-        });
+        if (!farewell) {
+          this.login().catch((err) => {
+            this.output.error(`Failed to login:`, err.message);
+          });
+        }
         if (!resolved) {
           resolved = true;
-          resolve();
+          resolve(cable);
         }
       };
 
@@ -262,11 +295,11 @@ export default class IchibotClient {
         }
         if (!resolved) {
           resolved = true;
-          resolve(); // accept input at prompt
+          resolve(cable); // accept input at prompt
         }
       };
 
-      this.cable.register('IchibotRPCNotification', async data => {
+      cable.register('IchibotRPCNotification', async (data) => {
         const { notification, params } = data;
         switch (notification) {
           case 'feed':
@@ -298,6 +331,8 @@ export default class IchibotClient {
             }
         }
       });
+
+      this.cable = cable;
 
       this.output.log(`Initializing...`);
 
@@ -424,9 +459,6 @@ export default class IchibotClient {
 
     this.output.log(`Reloading init script from file`);
     const { initLines } = this.opts.readInitFile(this.auth.exchange);
-    if (this.context) {
-      initLines.push(`instrument ${this.context.currentInstrument || '*'}`);
-    }
 
     return this.callRpc('reloadInit', { initLines, ...this.auth })
   }
@@ -446,9 +478,6 @@ export default class IchibotClient {
     }
 
     const { initLines } = this.opts.readInitFile(this.auth.exchange);
-    if (this.context) {
-      initLines.push(`instrument ${this.context.currentInstrument || '*'}`);
-    }
 
     const result = await this.callRpc('hello', {name: 'donut', version: CLIENT_VERSION_FULL, initLines});
     this.activeLoginsByFriendlyName.add(this.auth.friendlyName);
@@ -478,23 +507,32 @@ export default class IchibotClient {
     this.output.log(`Clearing your credentials for ${this.auth?.friendlyName ?? 'the current connection'}...`)
     this.activeLoginsByFriendlyName.delete(auth?.friendlyName ?? 'default');
     this.opts.clientDB.delete(getAuthSaveKey(auth?.friendlyName ?? 'default'));
-    this.opts.clientDB.delete(getCookieSaveKey(this.ws?.url ?? '', auth?.friendlyName ?? 'default'));
+    const wsUrl = (auth?.exchange && this.generateWsUrl(auth.exchange)) || '';
+    this.opts.clientDB.delete(getCookieSaveKey(wsUrl, auth?.friendlyName ?? 'default'));
     this.auth = null;
     this.output.log('Done.');
   }
 
   public async handleQuit() {
     while (this.activeLoginsByFriendlyName.size > 0) {
+      let cable: Cable | null = null;
       if (this.ws?.readyState !== WebSocket.OPEN) {
-        this.applyAuthFromStore(null, Array.from(this.activeLoginsByFriendlyName.values())[0] ?? null);
-        await this.connect();
+        this.applyAuthFromStore(
+          null,
+          Array.from(this.activeLoginsByFriendlyName.values())[0] ?? null
+        );
+        cable = await this.connect(true);
+      } else {
+        cable = this.cable;
       }
-      const auth = this.auth;
-      this.output.log(`Signing out from ${this.auth?.friendlyName}...`);
-      await this.callRpc('bye', {}).catch(() => null);
-      this.activeLoginsByFriendlyName.delete(auth?.friendlyName ?? 'default');
+      const exchange = this.auth?.exchange;
+      const friendlyName = this.auth?.friendlyName ?? 'default';
+      const wsUrl = this.generateWsUrl(exchange!);
+      this.output.log(`Signing out from ${friendlyName}...`);
+      cable?.notify('bye', { auth: this.auth });
+      this.activeLoginsByFriendlyName.delete(friendlyName ?? 'default');
       await this.close();
-      this.opts.clientDB.delete(getCookieSaveKey(this.ws?.url ?? '', auth?.friendlyName ?? 'default'));
+      this.opts.clientDB.delete(getCookieSaveKey(wsUrl ?? '', friendlyName ?? 'default'));
     }
     this.opts.process.exit(0);
   }
@@ -519,6 +557,8 @@ export default class IchibotClient {
 
         if (this.ws !== null) {
           this.output.log('Closing existing connection...');
+          this.cable?.notify('bye', { auth: this.auth });
+          this.activeLoginsByFriendlyName.delete(this.auth?.friendlyName ?? 'default');
           await this.close();
         }
 

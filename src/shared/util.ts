@@ -330,3 +330,14 @@ export const splitMajorMinorVersion = (v: string | number): [number, number] => 
   const minor = parseInt(versionParts[1] ?? '0');
   return [major, minor];
 }
+
+export function promiseWithTimeout<T>(
+  timeoutMs: number,
+  promise: Promise<T> | (() => Promise<T>)
+): Promise<T> {
+  const mainPromise = typeof promise === 'function' ? promise() : promise;
+  const timeout = new Promise((_resolve, reject) =>
+    setTimeout(() => reject(new Error(`Promise timeout: ${timeoutMs / 1000} seconds`)), timeoutMs)
+  ) as Promise<never>;
+  return Promise.race([mainPromise, timeout]);
+}
