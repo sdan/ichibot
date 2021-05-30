@@ -19,6 +19,7 @@ export interface AuthArgs {
     exchange: ExchangeLabel;
     apiKey: string;
     apiSecret: string;
+    passphrase?: string;
     subAccount?: string | null;
     friendlyName: string;
   }

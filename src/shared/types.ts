@@ -1,4 +1,4 @@
-export const SUPPORTED_EXCHANGES = ['binance', 'binance-spot', 'ftx', 'bybit'] as const;
+export const SUPPORTED_EXCHANGES = ['binance', 'binance-spot', 'ftx', 'bybit', 'globe'] as const;
 export type ExchangeLabel = typeof SUPPORTED_EXCHANGES[number];
 
 export interface ApiKey {

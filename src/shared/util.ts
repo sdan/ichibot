@@ -308,7 +308,8 @@ export const getInitInstrument = (exchange: ExchangeLabel) => {
     binance: 'BTCUSDT',
     "binance-spot": 'BTCUSDT',
     bybit: 'BTCUSD',
-    ftx: 'BTC-PERP'
+    ftx: 'BTC-PERP',
+    globe: 'XBTUSD'
   };
   return instrumentMap[exchange];
 }
@@ -331,13 +332,22 @@ export const splitMajorMinorVersion = (v: string | number): [number, number] => 
   return [major, minor];
 }
 
+export class PromiseTimeout extends Error {
+  constructor(...params: any[]) {
+    super(...params);
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, PromiseTimeout);
+    }
+  }
+}
+
 export function promiseWithTimeout<T>(
   timeoutMs: number,
   promise: Promise<T> | (() => Promise<T>)
 ): Promise<T> {
   const mainPromise = typeof promise === 'function' ? promise() : promise;
   const timeout = new Promise((_resolve, reject) =>
-    setTimeout(() => reject(new Error(`Promise timeout: ${timeoutMs / 1000} seconds`)), timeoutMs)
+    setTimeout(() => reject(new PromiseTimeout(`Promise timeout: ${timeoutMs / 1000} seconds`)), timeoutMs)
   ) as Promise<never>;
   return Promise.race([mainPromise, timeout]);
 }

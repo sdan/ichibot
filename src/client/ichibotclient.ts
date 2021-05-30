@@ -28,6 +28,7 @@ export interface ClientDB {
 export interface IchibotClientOpts {
   wsUrlA: string;
   wsUrlB: string;
+  wsUrlC: string;
   omitConnectionQueryString?: boolean;
   getDataSafe: <T>(path: string, defaultValue: T) => T;
   logger: Logger;
@@ -148,10 +149,16 @@ export default class IchibotClient {
   Generate websocket URL based on exchange
   */
   private generateWsUrl(exchange: ExchangeLabel) {
-    return exchange === 'bybit'
-      ? this.opts.wsUrlB
-      : this.opts.wsUrlA +
-          (this.opts.omitConnectionQueryString ? '' : `?primaryexchange=${exchange}`);
+    return (
+      (exchange === 'globe'
+        ? this.opts.wsUrlC
+        : exchange === 'bybit'
+        ? this.opts.wsUrlB
+        : this.opts.wsUrlA) +
+      (this.opts.omitConnectionQueryString
+        ? ''
+        : `?primaryexchange=${exchange}`)
+    );
   }
 
   private generateWsHeaders(exchange: ExchangeLabel, exchangeFriendlyName: string) {
@@ -579,14 +586,15 @@ export default class IchibotClient {
 
           const exchangeLabelAnswer = (
             await requestUntilValid(
-              'Exchange: (b)inance futs, binance (s)pot, b(y)bit, (f)tx: ',
-              (s) => ['b', 's', 'y', 'f'].includes(s[0].toLowerCase()))).substring(0,1).toLowerCase();
+              'Exchange: (b)inance futs, binance (s)pot, b(y)bit, (f)tx, (g)lobeDX: ',
+              (s) => ['b', 's', 'y', 'f', 'g'].includes(s[0].toLowerCase()))).substring(0,1).toLowerCase();
 
           const exchangeLabelAnswerMap: { [k: string]: ExchangeLabel } = {
             b: 'binance',
             s: 'binance-spot',
             y: 'bybit',
             f: 'ftx',
+            g: 'globe'
           };
 
           const exchange: ExchangeLabel = exchangeLabelAnswerMap[exchangeLabelAnswer];
@@ -594,9 +602,13 @@ export default class IchibotClient {
           const apiKey = (await requestUntilValid('Your API key: ', (s) => !!s));
           const apiSecret = (await requestUntilValid('Your API secret: ', (s) => !!s));
           const subAccount = exchange === 'ftx' ? (await requestUntilValid('Your FTX subaccount name (leave empty for none): ', () => true)) : '';
+          const passphrase =
+            exchange === 'globe'
+              ? await requestUntilValid('Your API passphrase: ', (s) => !!s)
+              : '';
           const friendlyName = (await requestUntilValid('Name these credentials (empty = "default"): ', () => true)) || 'default';
 
-          this.auth = { apiKey, apiSecret, subAccount, exchange, friendlyName };
+          this.auth = { apiKey, apiSecret, passphrase, subAccount, exchange, friendlyName };
           this.opts.clientDB.push(getAuthSaveKey(friendlyName), this.auth);
           this.output.log('API key saved. To clear current credentials please type "logout".')
         }

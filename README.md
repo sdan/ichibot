@@ -61,8 +61,7 @@ To run in the future, you can do the following (one line at a time this time)
 cd ichibot-client-app
 yarn start
 ```
-There are also standalone versions you just made as well called `ichibot-macos` `ichibot-linux` `ichibot-win.exe` in the ichibot-client-app directory.  
-  
+      
 Type `login` for the API key prompt to set up with your keys (which are stored locally on your machine ONLY, in ichibot-config-db.json).
   
 # Go to the [wiki for the user manual](https://gitlab.com/Ichimikichiki/ichibot-client-app/-/wikis/home)  
@@ -82,7 +81,7 @@ export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || pr
 ```
  #### Step 3:  
 ```yml
-nvm install 12 && npm i -g yarn
+nvm install 13 && npm i -g yarn
 git clone https://gitlab.com/Ichimikichiki/ichibot-client-app.git
 cd ichibot-client-app
 yarn install
@@ -91,20 +90,26 @@ yarn build
 #### Start ichibot   
 ```yml
 yarn start
-```
-# When the time comes to do an _update_.  
-
-Navigate to ichibot folder, probably something like  
+```  
   
-```yml
-cd ichibot-client-app
-git pull
-yarn install
-yarn build
-yarn start
-```    
+  There are also standalone versions we can make as well called `ichibot-macos` `ichibot-linux` `ichibot-win.exe` in the ichibot-client-app directory.  
+  ```
+  yarn build-standalone
+  ```  
+
+  # When the time comes to do an _update_.  
+
+  Navigate to ichibot folder, probably something like  
     
-______________________________________________________________________________________________
+  ```yml
+  cd ichibot-client-app
+  git pull
+  yarn install
+  yarn build
+  yarn start
+  ```    
+  
+  _______________________________________________________________________________________________
   
 # API Credentials  
 - You can just make API keys in your FTX [settings](https://ftx.com/profile)  
