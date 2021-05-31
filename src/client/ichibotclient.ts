@@ -1,5 +1,5 @@
 import { IchibotRPC, AuthArgs, MessageNotification, ContextNotification, GlobalContext, ALL_SYM, APP_VERSION, InstructionNotification } from '../shared/ichibotrpc_types';
-import WebSocket from 'ws';
+import WebSocket from 'isomorphic-ws';
 import { Cable, Waterfall, exponentialTruncatedBackoff } from "hydrated-ws";
 import {
   ParameterType,
@@ -157,7 +157,7 @@ export default class IchibotClient {
         : this.opts.wsUrlA) +
       (this.opts.omitConnectionQueryString
         ? ''
-        : `?primaryexchange=${exchange}`)
+        : `?primaryexchange=${exchange}&client-ws-library=hydrated-ws`)
     );
   }
 
@@ -247,29 +247,45 @@ export default class IchibotClient {
             perMessageDeflate: false,
             headers: this.generateWsHeaders(primaryExchange, friendlyName),
           });
-          ws.on('upgrade', (res: IncomingMessage) => {
-            if (IS_NODEJS && res.headers['set-cookie']) {
+          IS_NODEJS && ws.on('upgrade', (res: IncomingMessage) => {
+            if (res.headers['set-cookie']) {
               const newCookies = res.headers['set-cookie'].map((s) => s.split(';')[0]).join('; ');
               this.opts.clientDB.push(getCookieSaveKey(ws.url, friendlyName), newCookies);
             }
           });
-          ws.on('pong', () => {
-            hb.pong();
-          });
-          const pingInterval = setInterval(() => {
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.ping(() => {});
-            }
-          }, POKE_INTERVAL);
-          ws.on('close', () => {
-            clearInterval(pingInterval);
-          });
+          IS_NODEJS &&
+            (function () {
+              ws.on('pong', () => {
+                hb.pong();
+              });
+              const pingInterval = setInterval(() => {
+                if (ws.readyState === WebSocket.OPEN) {
+                  ws.ping(() => {});
+                }
+              }, POKE_INTERVAL);
+              ws.on('close', () => {
+                clearInterval(pingInterval);
+              });
+            })();
           ichibotClient.internalWs = ws;
           return ws;
         },
       });
-      // @ts-ignore - dispatchEvent is not implemented for ws - https://github.com/websockets/ws/issues/1583
       const cable = new Cable(this.ws);
+      !IS_NODEJS && (function () {
+        const asyncFunc = async () => {
+          try {
+            await cable.request('poke', {}, POKE_INTERVAL);
+            hb.pong();
+          } catch (e) {
+            console.error(e);
+          }
+        }
+        const pingInterval = setInterval(asyncFunc, POKE_INTERVAL);
+        cable.addEventListener('close', () => {
+          clearInterval(pingInterval);
+        });
+      })();
       hb = new Heartbreaker(this.ws, 5000, 10000);
 
       this.ws.onerror = (ev) => {
