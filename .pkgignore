@@ -4,3 +4,4 @@ client-linux
 client-macos
 client-win.exe
 notexist.txt
+.DS_Store

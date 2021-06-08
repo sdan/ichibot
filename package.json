@@ -15,9 +15,9 @@
     "dev": "LOG_TIMESTAMPS=true supervisor -w src -e ts,json -n error  -x npx -- ts-node src/index.ts",
     "dev-local": "SERVER_URL=ws://localhost:8889 supervisor -w src -e ts,json -n error  -x npx -- ts-node src/index.ts",
     "dev-local-proxied": "SERVER_URL=ws://localhost:5050 supervisor -w src -e ts,json -n error  -x npx -- ts-node src/index.ts",
-    "dev-docker": "SERVER_URL=ws://ichibot.trade.local:8888 supervisor -w src -e ts,json -n error  -x npx -- ts-node src/index.ts",
-    "dev-test": "SERVER_URL=wss://test.ichibot.trade:443 supervisor -w src -e ts,json -n error  -x npx -- ts-node src/index.ts",
-    "start-local": "SERVER_URL=ws://localhost:8888 npx ts-node src/index.ts"
+    "dev-docker": "SERVER_URL=ws://ichibot.trade.local:8889 supervisor -w src -e ts,json -n error  -x npx -- ts-node src/index.ts",
+    "dev-test": "SERVER_URL=wss://test.ichibot.trade:2053 supervisor -w src -e ts,json -n error  -x npx -- ts-node src/index.ts",
+    "start-local": "SERVER_URL=ws://localhost:8889 npx ts-node src/index.ts"
   },
   "dependencies": {
     "@types/node": "^14.0.19",

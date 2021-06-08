@@ -7,3 +7,4 @@ client-linux
 client-macos
 client-win.exe
 initrun*
+.DS_Store

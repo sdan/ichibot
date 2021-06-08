@@ -537,6 +537,14 @@ export default class IchibotClient {
   }
 
   public async handleQuit() {
+    if (this.ws !== null) {
+      const friendlyName = this.auth?.friendlyName;
+      this.output.log(`Closing existing connection to ${friendlyName}...`);
+      this.cable?.notify('bye', { auth: this.auth });
+      friendlyName !== undefined &&
+        this.activeLoginsByFriendlyName.delete(friendlyName);
+      await this.close();
+    }
     while (this.activeLoginsByFriendlyName.size > 0) {
       let cable: Cable | null = null;
       if (this.ws?.readyState !== WebSocket.OPEN) {
